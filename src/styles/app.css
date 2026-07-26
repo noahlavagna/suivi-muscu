@@ -1,0 +1,195 @@
+@import 'tailwindcss';
+
+/* ————— Design tokens ————— */
+
+:root {
+  --accent: #e8963c;
+  --accent-strong: #f0a552;
+  --accent-dim: rgba(232, 150, 60, 0.14);
+  --positive: #4fa36b;
+  --negative: #c4554d;
+
+  --radius-ctrl: 10px;
+  --radius-card: 16px;
+  --radius-sheet: 28px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-canvas: #0c0b0a;
+  --bg-raised: #171412;
+  --bg-raised-2: #201c19;
+  --bg-overlay: #1e1b18;
+  --text-primary: #f5f2ee;
+  --text-secondary: rgba(245, 242, 238, 0.58);
+  --text-tertiary: rgba(245, 242, 238, 0.34);
+  --separator: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(24, 21, 18, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --positive: #58b478;
+  --negative: #d3675f;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-canvas: #f4f2ef;
+  --bg-raised: #ffffff;
+  --bg-raised-2: #faf9f7;
+  --bg-overlay: #ffffff;
+  --text-primary: #1c1917;
+  --text-secondary: rgba(28, 25, 23, 0.58);
+  --text-tertiary: rgba(28, 25, 23, 0.36);
+  --separator: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(250, 249, 247, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-highlight: rgba(255, 255, 255, 0.8);
+  --scrim: rgba(20, 15, 10, 0.35);
+  --accent: #d17f24;
+  --accent-strong: #b96f1c;
+  --accent-dim: rgba(209, 127, 36, 0.13);
+  --positive: #3d8a58;
+  --negative: #b34a42;
+}
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-raised: var(--bg-raised);
+  --color-raised-2: var(--bg-raised-2);
+  --color-overlay: var(--bg-overlay);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-dim: var(--accent-dim);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-sep: var(--separator);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, sans-serif;
+  --radius-ctrl: var(--radius-ctrl);
+  --radius-card: var(--radius-card);
+  --radius-sheet: var(--radius-sheet);
+}
+
+/* ————— Base ————— */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#root {
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Zones scrollables internes : inertie iOS, pas de chaînage vers le body */
+.scroll-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+button,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+input[type='text'],
+input[type='number'],
+textarea {
+  font-size: 16px; /* < 16px => zoom auto iOS au focus */
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ————— Liquid glass — tab bar, header sticky, sheets uniquement ————— */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass {
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    backdrop-filter: blur(20px) saturate(1.6);
+  }
+}
+
+.hairline-t {
+  box-shadow: 0 -0.5px 0 var(--separator);
+}
+.hairline-b {
+  box-shadow: 0 0.5px 0 var(--separator);
+}
+
+/* ————— Gamification ————— */
+.glow-accent {
+  box-shadow: 0 0 44px -14px var(--accent);
+}
+
+/* Reflet balayant les cartes mythiques (transform uniquement, GPU) */
+@keyframes shimmer-sweep {
+  from {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(230%) skewX(-18deg);
+  }
+}
+.shimmer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in oklab, var(--accent) 22%, transparent),
+    transparent
+  );
+  animation: shimmer-sweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    display: none;
+  }
+}
+
+/* Anneau de focus clavier uniquement */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
