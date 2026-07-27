@@ -252,3 +252,27 @@ export const IconFlame = (p: IconProps) => (
     <path d="M12 21c-1.8 0-3-1.2-3-2.9 0-1.3 1-2.5 1.7-3.4.4-.5.8-1 1-1.7 1.2.9 3.3 2.8 3.3 5.1 0 1.7-1.2 2.9-3 2.9Z" />
   </Icon>
 );
+export const IconPhone = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+    <path d="M10.5 5.5h3" />
+  </Icon>
+);
+export const IconDesktop = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="4" width="19" height="12.5" rx="2" />
+    <path d="M8.5 20.5h7M12 16.5v4" />
+  </Icon>
+);
+/** Carré + : l'action « Sur l'écran d'accueil » de la feuille de partage iOS. */
+export const IconAddToHome = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+    <path d="M12 8.5v7M8.5 12h7" />
+  </Icon>
+);
+export const IconDots = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 5.5v.01M12 12v.01M12 18.5v.01" strokeWidth={2.6} />
+  </Icon>
+);
