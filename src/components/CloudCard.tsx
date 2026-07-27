@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useCloud } from '../state/cloud';
+import { MIN_PASSWORD, useCloud } from '../state/cloud';
 import { Card } from './Screen';
 import { Pressable } from './ui/Pressable';
 import { IconCloud } from './ui/Icons';
@@ -14,11 +14,19 @@ function fmtLast(iso: string | null): string {
   });
 }
 
-/** Compte + sauvegarde cloud (code par email, sans mot de passe). */
+/** Compte + sauvegarde cloud (email + mot de passe). */
 export function CloudCard() {
   const cloud = useCloud();
+  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const canSubmit = email.includes('@') && password.length >= MIN_PASSWORD;
+
+  const submit = () => {
+    if (mode === 'signUp') void cloud.signUp(email, password);
+    else void cloud.signIn(email, password);
+  };
 
   useEffect(() => () => cloud.clearMessages(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -46,59 +54,73 @@ export function CloudCard() {
                 <IconCloud size={18} />
               </span>
               <p className="text-[13px] leading-4.5 text-ink-2">
-                Sauvegarde tes données en ligne pour ne jamais les perdre. Un code par
-                email, pas de mot de passe.
+                Sauvegarde tes données en ligne pour ne jamais les perdre, et retrouve-les sur
+                tous tes appareils.
               </p>
             </div>
-            {cloud.codeSentTo === null ? (
-              <>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  className={input}
-                  placeholder="ton@email.fr"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Pressable
-                  className={btn}
-                  disabled={cloud.busy || !email.includes('@')}
-                  onClick={() => void cloud.sendCode(email.trim())}
+
+            <div className="flex rounded-[12px] bg-raised-2 p-1">
+              {(['signIn', 'signUp'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`flex-1 rounded-[9px] py-2 text-[14px] font-semibold ${
+                    mode === m ? 'bg-accent text-canvas' : 'text-ink-2'
+                  }`}
+                  onClick={() => {
+                    setMode(m);
+                    cloud.clearMessages();
+                  }}
                 >
-                  {cloud.busy ? 'Envoi…' : 'Recevoir un code'}
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <p className="text-[13px] text-ink-2">
-                  Code envoyé à <span className="font-semibold">{cloud.codeSentTo}</span>
-                </p>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  className={`${input} tnum text-center text-[22px] tracking-[0.4em]`}
-                  placeholder="••••••"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                />
-                <Pressable
-                  className={btn}
-                  disabled={cloud.busy || code.length !== 6}
-                  onClick={() => void cloud.verifyCode(code)}
-                >
-                  {cloud.busy ? 'Vérification…' : 'Se connecter'}
-                </Pressable>
-                <Pressable
-                  className="py-1 text-[13px] font-medium text-ink-3"
-                  onClick={() => void cloud.sendCode(cloud.codeSentTo!)}
-                >
-                  Renvoyer le code
-                </Pressable>
-              </>
+                  {m === 'signIn' ? 'Se connecter' : 'Créer un compte'}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              className={input}
+              placeholder="ton@email.fr"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <div className="relative">
+              <input
+                type={show ? 'text' : 'password'}
+                autoComplete={mode === 'signUp' ? 'new-password' : 'current-password'}
+                className={`${input} pr-16`}
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canSubmit && !cloud.busy) submit();
+                }}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-ink-3"
+                onClick={() => setShow((v) => !v)}
+              >
+                {show ? 'Cacher' : 'Voir'}
+              </button>
+            </div>
+            {mode === 'signUp' && (
+              <p className="text-[12px] text-ink-3">
+                {MIN_PASSWORD} caractères minimum. Note-le : il n’y a pas de récupération dans
+                l’app.
+              </p>
             )}
+            <Pressable className={btn} disabled={cloud.busy || !canSubmit} onClick={submit}>
+              {cloud.busy
+                ? 'Connexion…'
+                : mode === 'signUp'
+                  ? 'Créer mon compte'
+                  : 'Se connecter'}
+            </Pressable>
           </div>
         )}
 
