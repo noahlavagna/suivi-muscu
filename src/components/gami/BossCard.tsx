@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { bossState, ensureMonthlyBoss, pastBosses } from '../../gamification/boss';
+import { bossState, monthKey, pastBosses } from '../../gamification/boss';
+import { db } from '../../db/db';
 import { useSettings } from '../../state/settings';
 import { fmtTonnage } from '../../lib/format';
 import { BossFigure } from './BossFigure';
@@ -12,7 +13,12 @@ import { Pressable } from '../ui/Pressable';
 export function BossCard() {
   const unit = useSettings((s) => s.unit);
   const [open, setOpen] = useState(false);
-  const state = useLiveQuery(async () => bossState(await ensureMonthlyBoss()), []);
+  // Lecture seule : la création du boss du mois est faite au lancement (App) —
+  // écrire depuis une liveQuery lèverait une ReadOnlyError.
+  const state = useLiveQuery(async () => {
+    const row = await db.bosses.get(monthKey());
+    return row ? bossState(row) : null;
+  }, []);
   const history = useLiveQuery(pastBosses, []);
 
   if (!state) return null;

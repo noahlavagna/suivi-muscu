@@ -111,12 +111,12 @@ export default function App() {
   const sheetDepth = useSheetDepth((s) => s.depth);
   const reduced = useReducedMotion();
 
-  // Onboarding : uniquement sur une base sans programme jamais initialisée
+  // Onboarding : uniquement sur une base sans programme jamais initialisée.
+  // undefined = pas encore su → on ne rend rien (évite un flash du dashboard).
   const needsOnboarding = useLiveQuery(
     async () =>
-      ready && (await db.templates.count()) === 0 && (await db.meta.get('onboarded')) === undefined,
-    [ready],
-    false,
+      (await db.templates.count()) === 0 && (await db.meta.get('onboarded')) === undefined,
+    [],
   );
 
   useEffect(() => {
@@ -146,26 +146,34 @@ export default function App() {
     setWrapped(null);
   };
 
-  if (!ready) return null;
-
-  if (needsOnboarding) {
-    return (
-      <OnboardingScreen
-        onDone={() => {
-          const meta: OnboardedMeta = { id: 'onboarded', at: Date.now() };
-          void db.meta.put(meta);
-        }}
-      />
-    );
-  }
+  if (!ready || needsOnboarding === undefined) return null;
 
   return (
     <>
+      <AnimatePresence mode="wait" initial={false}>
+        {needsOnboarding && (
+          <motion.div
+            key="onboarding"
+            className="absolute inset-0 z-30 bg-canvas"
+            exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 1.06 }}
+            transition={reduced ? { duration: 0.2 } : { duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <OnboardingScreen
+              onDone={() => {
+                const meta: OnboardedMeta = { id: 'onboarded', at: Date.now() };
+                void db.meta.put(meta);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Le shell recule quand une sheet est ouverte (effet de profondeur iOS) */}
       <motion.div
         className="h-full overflow-hidden bg-canvas"
+        initial={false}
         animate={
-          sheetDepth > 0 && !reduced
+          (sheetDepth > 0 || needsOnboarding) && !reduced
             ? { scale: 0.96, borderRadius: 24 }
             : { scale: 1, borderRadius: 0 }
         }
