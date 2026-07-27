@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
   BadgeRow,
+  BossRow,
   ChallengeRow,
   Exercise,
   MetaRecord,
@@ -11,7 +12,7 @@ import type {
 } from './types';
 import { seedIfEmpty } from './seed';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const db = new Dexie('suivi-muscu') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>;
@@ -22,6 +23,7 @@ export const db = new Dexie('suivi-muscu') as Dexie & {
   meta: EntityTable<MetaRecord, 'id'>;
   badges: EntityTable<BadgeRow, 'id'>;
   challenges: EntityTable<ChallengeRow, 'id'>;
+  bosses: EntityTable<BossRow, 'id'>;
 };
 
 db.version(1).stores({
@@ -33,9 +35,13 @@ db.version(1).stores({
   meta: 'id',
 });
 
-db.version(SCHEMA_VERSION).stores({
+db.version(2).stores({
   badges: 'id',
   challenges: 'id',
+});
+
+db.version(SCHEMA_VERSION).stores({
+  bosses: 'id',
 });
 
 export const dbReady = seedIfEmpty(db).then(async () => {

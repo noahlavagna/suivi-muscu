@@ -10,6 +10,7 @@ export const XP_PER_SET = 10;
 export const XP_PER_WORKOUT = 50;
 export const XP_PER_PR = 40;
 export const XP_PER_BADGE = 100;
+export const XP_PER_BOSS = 300;
 
 export interface XPBreakdown {
   total: number;
@@ -24,6 +25,7 @@ export interface XPBreakdown {
   prEvents: number;
   challengesXp: number;
   badgesXp: number;
+  bossesSlain: number;
 }
 
 /** Coût pour passer du niveau n au niveau n+1 */
@@ -93,23 +95,26 @@ export function prEventList(sortedLogs: SetLog[]): PREvent[] {
 export const countPREvents = (sortedLogs: SetLog[]): number => prEventList(sortedLogs).length;
 
 export async function computeXP(): Promise<XPBreakdown> {
-  const [workouts, logs, badges, challenges] = await Promise.all([
+  const [workouts, logs, badges, challenges, bosses] = await Promise.all([
     db.workouts.toArray(),
     db.setLogs.orderBy('completedAt').toArray(),
     db.badges.toArray(),
     db.challenges.toArray(),
+    db.bosses.toArray(),
   ]);
   const finishedIds = new Set(workouts.filter((w) => w.finishedAt).map((w) => w.id));
   const validLogs = logs.filter((l) => finishedIds.has(l.workoutId));
   const prEvents = countPREvents(validLogs);
   const challengesXp = challenges.filter((c) => c.doneAt).reduce((s, c) => s + c.xp, 0);
   const badgesXp = badges.length * XP_PER_BADGE;
+  const bossesSlain = bosses.filter((b) => b.slainAt).length;
   const total =
     validLogs.length * XP_PER_SET +
     finishedIds.size * XP_PER_WORKOUT +
     prEvents * XP_PER_PR +
     challengesXp +
-    badgesXp;
+    badgesXp +
+    bossesSlain * XP_PER_BOSS;
   const { level, xpInLevel, xpForNext } = levelFromXP(total);
   return {
     total,
@@ -122,5 +127,6 @@ export async function computeXP(): Promise<XPBreakdown> {
     prEvents,
     challengesXp,
     badgesXp,
+    bossesSlain,
   };
 }

@@ -22,10 +22,14 @@ import { SummarySheet } from './screens/session/SummarySheet';
 import { ToastHub } from './components/ToastHub';
 import { WrappedStory } from './components/gami/WrappedStory';
 import { ensureWeeklyChallenge } from './gamification/challenges';
+import { ensureMonthlyBoss } from './gamification/boss';
 import { evaluateBadges } from './gamification/badges';
 import { computeWrapped, prevMonthKey, type WrappedData } from './gamification/wrapped';
+import { OnboardingScreen } from './screens/Onboarding';
+import { useCloud } from './state/cloud';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db/db';
-import type { WrappedMeta } from './db/types';
+import type { OnboardedMeta, WrappedMeta } from './db/types';
 import type { StackItem } from './state/nav';
 
 function PushedView({ screen }: { screen: StackItem }) {
@@ -107,13 +111,23 @@ export default function App() {
   const sheetDepth = useSheetDepth((s) => s.depth);
   const reduced = useReducedMotion();
 
+  // Onboarding : uniquement sur une base sans programme jamais initialisée
+  const needsOnboarding = useLiveQuery(
+    async () =>
+      ready && (await db.templates.count()) === 0 && (await db.meta.get('onboarded')) === undefined,
+    [ready],
+    false,
+  );
+
   useEffect(() => {
     void dbReady.then(async () => {
       await useSettings.getState().load();
       await useSession.getState().restore();
       setReady(true);
-      // Gamification : contrat de la semaine, badges hors séance (streak…), récap mensuel
+      void useCloud.getState().init();
+      // Gamification : contrat, Colosse, badges hors séance, récap mensuel
       await ensureWeeklyChallenge();
+      await ensureMonthlyBoss();
       await evaluateBadges();
       const prevMonth = prevMonthKey();
       const meta = await db.meta.get('wrapped');
@@ -133,6 +147,17 @@ export default function App() {
   };
 
   if (!ready) return null;
+
+  if (needsOnboarding) {
+    return (
+      <OnboardingScreen
+        onDone={() => {
+          const meta: OnboardedMeta = { id: 'onboarded', at: Date.now() };
+          void db.meta.put(meta);
+        }}
+      />
+    );
+  }
 
   return (
     <>

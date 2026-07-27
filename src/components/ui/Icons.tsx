@@ -146,6 +146,61 @@ export const IconMoon = (p: IconProps) => (
     <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
   </Icon>
 );
+export const IconShield = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />
+    <path d="M12 3v18" />
+  </Icon>
+);
+export const IconHelmet = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12a7 7 0 0 1 14 0v6.5h-3.5V14h-7v4.5H5V12Z" />
+    <path d="M12 5v5.5M9 21h6" />
+  </Icon>
+);
+export const IconArmor = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 3.5 5 6.5V13l3 2v5.5h8V15l3-2V6.5l-3-3-2.5 2h-3L8 3.5Z" />
+    <path d="M12 8.5v12" />
+  </Icon>
+);
+export const IconBoot = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 3h6v9l5 4.5V20H8l-2-2V3h2Z" />
+    <path d="M8 12h6M12 20v-3.5" />
+  </Icon>
+);
+export const IconGauntlet = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 3.5h8V12l2 2-3 6.5H9L6 14l2-2V3.5Z" />
+    <path d="M8 8h8M12 8v6" />
+  </Icon>
+);
+export const IconWrench = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M14 7.5a4.5 4.5 0 0 1 5.7-4.3l-3 3 .8 2.8 2.8.8 3-3A4.5 4.5 0 0 1 14 7.5Z" transform="scale(0.86) translate(1.5 1.5)" />
+    <path d="m13.5 10.5-8 8a2.1 2.1 0 0 0 3 3l8-8" />
+  </Icon>
+);
+export const IconSkull = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3a7.5 7.5 0 0 0-7.5 7.5c0 2.6 1.3 4.4 3 5.6V20a1.5 1.5 0 0 0 1.5 1.5h6A1.5 1.5 0 0 0 16.5 20v-3.9c1.7-1.2 3-3 3-5.6A7.5 7.5 0 0 0 12 3Z" />
+    <circle cx="9" cy="11" r="1.4" />
+    <circle cx="15" cy="11" r="1.4" />
+    <path d="M12 14.5v2.5" />
+  </Icon>
+);
+export const IconShare = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 14.5V3.5m0 0 3.5 3.5M12 3.5 8.5 7" />
+    <path d="M6 11.5H5A1.5 1.5 0 0 0 3.5 13v6A1.5 1.5 0 0 0 5 20.5h14a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5h-1" />
+  </Icon>
+);
+export const IconCloud = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96 6 6 0 0 1 11.7 1.46A3.75 3.75 0 0 1 17.5 18.5H7Z" />
+  </Icon>
+);
 export const IconCrown = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 8.5 7.5 12l4.5-6 4.5 6L20 8.5 18.5 18h-13L4 8.5Z" />

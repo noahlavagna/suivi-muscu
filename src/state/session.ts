@@ -10,8 +10,17 @@ import { sounds } from '../lib/sound';
 import { useToasts } from './toasts';
 import { evaluateBadges } from '../gamification/badges';
 import { checkChallenge, CHALLENGE_XP } from '../gamification/challenges';
+import { checkBoss, bossState, ensureMonthlyBoss } from '../gamification/boss';
 import { computeRarity, type Rarity } from '../gamification/rarity';
-import { XP_PER_BADGE, XP_PER_PR, XP_PER_SET, XP_PER_WORKOUT } from '../gamification/xp';
+import {
+  XP_PER_BADGE,
+  XP_PER_BOSS,
+  XP_PER_PR,
+  XP_PER_SET,
+  XP_PER_WORKOUT,
+} from '../gamification/xp';
+import { coachAdvice, type CoachAdvice } from '../lib/coach';
+import { useCloud } from './cloud';
 
 export interface SessionSet {
   target: TargetSet;
@@ -35,6 +44,8 @@ export interface SessionEntry {
   note: string;
   sets: SessionSet[];
   last?: LastPerf;
+  coach?: CoachAdvice | null;
+  weightIncrementKg: number;
 }
 
 export interface RestState {
@@ -53,6 +64,7 @@ export interface SessionSummary {
   xpGained: number;
   newBadges: string[]; // noms
   challengeDone: boolean;
+  boss?: { name: string; damageKg: number; hpLeft: number; slainNow: boolean };
 }
 
 interface SessionStore {
@@ -74,6 +86,7 @@ interface SessionStore {
   completeSet: (ei: number, si: number) => Promise<void>;
   uncompleteSet: (ei: number, si: number) => Promise<void>;
   addSet: (ei: number) => void;
+  addWarmupSets: (ei: number, sets: { weightKg: number; reps: number }[]) => void;
   setEntryNote: (ei: number, note: string) => void;
   adjustRest: (deltaSec: number) => void;
   skipRest: () => void;
@@ -128,13 +141,25 @@ async function buildEntries(
     template.items.map(async (item) => {
       const ex = exercises.get(item.exerciseId);
       const last = await fetchLastPerf(item.exerciseId, workoutId);
+      const increment = ex?.weightIncrementKg ?? 2.5;
+      const coach = coachAdvice(item.sets, last, increment);
+      const sets = item.sets.map((t, i) => {
+        const s = prefillSet(t, last, i);
+        // Le coach pré-remplit la progression suggérée (jamais sur holds/échauffement)
+        if (coach?.kind === 'increase' && t.type !== 'hold' && t.type !== 'échauffement' && s.weightKg > 0) {
+          s.weightKg = Math.round((s.weightKg + coach.deltaKg) * 100) / 100;
+        }
+        return s;
+      });
       return {
         exerciseId: item.exerciseId,
         restSec: item.restSecOverride ?? ex?.defaultRestSec ?? 90,
         templateNote: item.note ?? ex?.note,
         note: '',
-        sets: item.sets.map((t, i) => prefillSet(t, last, i)),
+        sets,
         last,
+        coach,
+        weightIncrementKg: increment,
       };
     }),
   );
@@ -297,7 +322,7 @@ export const useSession = create<SessionStore>((set, get) => ({
         sub: prs.map((k) => PR_LABEL[k]).join(' · '),
       });
     }
-    // Le contrat de la semaine peut tomber en pleine séance
+    // Le contrat de la semaine et le Colosse peuvent tomber en pleine séance
     void checkChallenge().then((done) => {
       if (done) {
         haptics.pr();
@@ -305,6 +330,17 @@ export const useSession = create<SessionStore>((set, get) => ({
           icon: 'scroll',
           title: 'Contrat rempli',
           sub: `${done.desc} · +${done.xp} XP`,
+        });
+      }
+    });
+    void checkBoss().then((slain) => {
+      if (slain) {
+        haptics.pr();
+        sounds.pr();
+        useToasts.getState().push({
+          icon: 'skull',
+          title: 'Colosse terrassé !',
+          sub: `${slain.name} · +${XP_PER_BOSS} XP`,
         });
       }
     });
@@ -324,6 +360,24 @@ export const useSession = create<SessionStore>((set, get) => ({
     if (s.logId) await db.setLogs.delete(s.logId);
     get().patchSet(ei, si, { done: false, logId: undefined, prs: [] });
     await rebuildAllPRs();
+  },
+
+  addWarmupSets(ei, sets) {
+    const entry = get().entries[ei];
+    if (!entry) return;
+    const warmups: SessionSet[] = sets.map((s) => ({
+      target: { type: 'échauffement' },
+      weightKg: s.weightKg,
+      reps: s.reps,
+      durationSec: 0,
+      done: false,
+      prs: [],
+    }));
+    set({
+      entries: get().entries.map((e, i) =>
+        i !== ei ? e : { ...e, sets: [...warmups, ...e.sets] },
+      ),
+    });
   },
 
   addSet(ei) {
@@ -391,8 +445,11 @@ export const useSession = create<SessionStore>((set, get) => ({
     await db.workouts.update(workoutId, { finishedAt: Date.now() });
     await db.meta.delete('activeSession');
 
-    // Gamification : contrat, badges, rareté, XP — tout dérivé de la séance réelle
+    // Gamification : contrat, Colosse, badges, rareté, XP — tout dérivé de la séance réelle
     const challengeDone = await checkChallenge();
+    const bossRow = await ensureMonthlyBoss();
+    const slainNow = await checkBoss();
+    const bState = await bossState(slainNow ?? bossRow);
     const newBadges = await evaluateBadges(workoutId);
     const totalSets = entries.reduce((n, e) => n + e.sets.length, 0);
     const deltaPct =
@@ -409,9 +466,17 @@ export const useSession = create<SessionStore>((set, get) => ({
       XP_PER_WORKOUT +
       prCount * XP_PER_PR +
       (challengeDone ? CHALLENGE_XP : 0) +
+      (slainNow ? XP_PER_BOSS : 0) +
       newBadges.length * XP_PER_BADGE;
 
     const toasts = useToasts.getState();
+    if (slainNow) {
+      toasts.push({
+        icon: 'skull',
+        title: 'Colosse terrassé !',
+        sub: `${slainNow.name} · +${XP_PER_BOSS} XP`,
+      });
+    }
     if (challengeDone) {
       toasts.push({
         icon: 'scroll',
@@ -437,8 +502,17 @@ export const useSession = create<SessionStore>((set, get) => ({
         xpGained,
         newBadges: newBadges.map((b) => b.name),
         challengeDone: challengeDone !== null,
+        boss: {
+          name: bossRow.name,
+          damageKg: tonnageKg,
+          hpLeft: bState.hpLeft,
+          slainNow: slainNow !== null,
+        },
       },
     });
+
+    // Sauvegarde cloud silencieuse si connecté
+    void useCloud.getState().backupNow(true);
   },
 
   async abandon() {

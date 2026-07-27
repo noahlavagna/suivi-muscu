@@ -100,8 +100,10 @@ body {
   touch-action: manipulation;
 }
 
+/* Le body est fixé sur le viewport (inset: 0) : hériter de 100 % est exact
+   partout, y compris en PWA standalone iOS où 100dvh laisse un vide en bas. */
 #root {
-  height: 100dvh;
+  height: 100%;
   overflow: hidden;
   position: relative;
 }

@@ -48,7 +48,8 @@ const EXERCISES: ExoSeed[] = [
   ['elev-lat-allonge', 'Élévations latérales allongé', ['épaules'], 2, 90],
 ];
 
-const TEMPLATES: WorkoutTemplate[] = [
+/** Le programme d'origine de l'app — proposé comme préfait « Forge 4 jours ». */
+export const SEED_TEMPLATES: WorkoutTemplate[] = [
   {
     id: 'tpl-epaules',
     name: 'Épaules (lourd)',
@@ -153,9 +154,9 @@ export async function seedIfEmpty(db: Dexie): Promise<void> {
       ...(note ? { note } : {}),
     }),
   );
-  await db.transaction('rw', ['exercises', 'templates', 'meta'], async () => {
+  // Les séances ne sont plus seedées : l'onboarding laisse choisir un programme
+  await db.transaction('rw', ['exercises', 'meta'], async () => {
     await db.table('exercises').bulkPut(exercises);
-    await db.table('templates').bulkPut(TEMPLATES);
     await db.table('meta').put(DEFAULT_SETTINGS);
   });
 }

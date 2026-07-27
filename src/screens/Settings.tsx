@@ -18,6 +18,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+import { CloudCard } from '../components/CloudCard';
+
 export function SettingsScreen() {
   const s = useSettings();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,6 +43,8 @@ export function SettingsScreen() {
   return (
     <Screen bottomPadding={40}>
       <BackHeader title="Réglages" />
+
+      <CloudCard />
 
       <Card className="mb-4 !py-1">
         <Row label="Unité">

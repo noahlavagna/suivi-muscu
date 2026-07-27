@@ -40,6 +40,8 @@ export async function ensureWeeklyChallenge(now = new Date()): Promise<Challenge
   let kind: ChallengeKind = (['tonnage', 'series', 'pr'] as const)[weekIndex % 3];
   if (kind === 'tonnage' && prev.tonnage <= 0) kind = 'series';
   if (kind === 'series' && prev.sets <= 0) kind = prev.tonnage > 0 ? 'tonnage' : 'series';
+  // « Bats un record » est impossible sans aucun historique : replis sur les séries
+  if (kind === 'pr' && (await db.setLogs.count()) === 0) kind = 'series';
 
   let target: number;
   if (kind === 'tonnage') target = Math.ceil((prev.tonnage * 1.02) / 50) * 50;

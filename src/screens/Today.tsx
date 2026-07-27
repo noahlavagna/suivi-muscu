@@ -14,6 +14,7 @@ import { HeroForge } from '../components/gami/HeroForge';
 import { ChallengeCard } from '../components/gami/ChallengeCard';
 import { EquivalentCard } from '../components/gami/EquivalentCard';
 import { BadgesStrip } from '../components/gami/BadgesStrip';
+import { BossCard } from '../components/gami/BossCard';
 import { fmtNumber, kgToUnit } from '../lib/format';
 import { fmtDateLong, todayISO, WEEKDAY_LABELS } from '../lib/dates';
 import { springList, staggerDelay } from '../lib/springs';
@@ -83,6 +84,8 @@ export function TodayScreen() {
       </LargeTitle>
 
       {gami && <HeroForge gami={gami} />}
+
+      <BossCard />
 
       {!template && (
         <Card className="flex flex-col items-center py-10 text-center">

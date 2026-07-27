@@ -1,15 +1,24 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { nanoid } from 'nanoid';
 import { db } from '../db/db';
+import {
+  applyForgePreset,
+  applyPreset,
+  FORGE_PRESET_META,
+  PROGRAM_PRESETS,
+} from '../db/programs';
 import { useNav } from '../state/nav';
 import { Screen, LargeTitle, Card } from '../components/Screen';
 import { Pressable } from '../components/ui/Pressable';
-import { IconChevronRight, IconDumbbell, IconPlus } from '../components/ui/Icons';
+import { Sheet } from '../components/ui/Sheet';
+import { IconChevronRight, IconDumbbell, IconPlus, IconScroll } from '../components/ui/Icons';
 import { WEEKDAY_LABELS } from '../lib/dates';
 
 export function ProgramScreen() {
   const templates = useLiveQuery(() => db.templates.orderBy('order').toArray(), []);
   const push = useNav((s) => s.push);
+  const [presetsOpen, setPresetsOpen] = useState(false);
 
   const addTemplate = async () => {
     const id = nanoid();
@@ -60,6 +69,47 @@ export function ProgramScreen() {
       >
         <IconPlus size={18} /> Nouvelle séance
       </Pressable>
+
+      <Pressable
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[14px] py-2.5 text-[14px] font-semibold text-ink-2"
+        onClick={() => setPresetsOpen(true)}
+      >
+        <IconScroll size={16} /> Importer un programme préfait
+      </Pressable>
+
+      <Sheet
+        open={presetsOpen}
+        onClose={() => setPresetsOpen(false)}
+        ariaLabel="Programmes préfaits"
+      >
+        <div className="pb-3 pt-1">
+          <h2 className="mb-3 text-[20px] font-bold">Programmes préfaits</h2>
+          {[
+            ...PROGRAM_PRESETS.map((p) => ({ ...p, apply: () => applyPreset(p) })),
+            { ...FORGE_PRESET_META, apply: applyForgePreset },
+          ].map((p) => (
+            <Pressable
+              key={p.id}
+              className="w-full border-b border-sep py-3 text-left last:border-b-0"
+              onClick={() => {
+                setPresetsOpen(false);
+                void p.apply();
+              }}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[15px] font-semibold">{p.name}</span>
+                <span className="shrink-0 text-[12px] font-semibold text-accent">
+                  {p.daysLabel}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[13px] text-ink-2">{p.desc}</p>
+            </Pressable>
+          ))}
+          <p className="mt-3 text-[12px] text-ink-3">
+            Les séances importées s’ajoutent à ton programme — rien n’est remplacé.
+          </p>
+        </div>
+      </Sheet>
 
       <Pressable
         className="mt-6 flex w-full items-center gap-3 rounded-[16px] bg-raised p-4 text-left"

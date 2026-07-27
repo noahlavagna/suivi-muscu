@@ -1,11 +1,20 @@
 import { useSession } from '../../state/session';
 import { useSettings } from '../../state/settings';
 import { fmtDurationLong, fmtTonnage } from '../../lib/format';
+import { fmtDateShort, todayISO } from '../../lib/dates';
+import { shareSummaryCard } from '../../lib/shareCard';
 import type { RarityTier } from '../../gamification/rarity';
 import { Sheet } from '../../components/ui/Sheet';
 import { Pressable } from '../../components/ui/Pressable';
 import { AnimatedNumber } from '../../components/ui/AnimatedNumber';
-import { IconMedal, IconScroll, IconTrophy, IconZap } from '../../components/ui/Icons';
+import {
+  IconMedal,
+  IconScroll,
+  IconShare,
+  IconSkull,
+  IconTrophy,
+  IconZap,
+} from '../../components/ui/Icons';
 
 const TIER_STYLE: Record<RarityTier, { border: string; chipBg: string; chipText: string; glow: boolean }> = {
   fonte: {
@@ -120,6 +129,26 @@ export function SummarySheet() {
             </span>
           </div>
 
+          {summary.boss && summary.boss.damageKg > 0 && (
+            <div className="mt-2 flex items-center justify-between rounded-[14px] bg-raised-2 px-4 py-3">
+              <span className="flex items-center gap-2 text-[14px] font-medium">
+                <IconSkull size={17} className="text-accent" /> {summary.boss.name}
+              </span>
+              <span className="tnum text-[14px] font-semibold">
+                {summary.boss.slainNow ? (
+                  <span className="text-accent">Terrassé !</span>
+                ) : (
+                  <>
+                    −{fmtTonnage(summary.boss.damageKg, unit)}
+                    <span className="ml-1.5 text-ink-3">
+                      reste {fmtTonnage(summary.boss.hpLeft, unit)}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
           {summary.challengeDone && (
             <div className="mt-2 flex items-center gap-2 rounded-[14px] bg-accent-dim px-4 py-3">
               <IconScroll size={17} className="text-accent" />
@@ -138,12 +167,21 @@ export function SummarySheet() {
             </div>
           )}
 
-          <Pressable
-            className="mt-4 w-full rounded-[14px] bg-accent py-3.5 text-[17px] font-semibold text-canvas"
-            onClick={clear}
-          >
-            OK
-          </Pressable>
+          <div className="mt-4 flex gap-2">
+            <Pressable
+              className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-raised-2 text-ink-2"
+              onClick={() => void shareSummaryCard(summary, unit, fmtDateShort(todayISO()))}
+              aria-label="Partager la carte"
+            >
+              <IconShare size={20} />
+            </Pressable>
+            <Pressable
+              className="flex-1 rounded-[14px] bg-accent py-3.5 text-[17px] font-semibold text-canvas"
+              onClick={clear}
+            >
+              OK
+            </Pressable>
+          </div>
         </div>
       )}
     </Sheet>

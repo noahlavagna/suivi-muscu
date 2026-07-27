@@ -7,7 +7,8 @@ import { fmtNumber, fmtTimer, kgToUnit } from '../../lib/format';
 import { fmtDateShort } from '../../lib/dates';
 import { SetRow } from './SetRow';
 import { Pressable } from '../../components/ui/Pressable';
-import { IconCrown, IconNote, IconPlus, IconTimer } from '../../components/ui/Icons';
+import { IconCrown, IconNote, IconPlus, IconTimer, IconWrench, IconZap } from '../../components/ui/Icons';
+import { ToolsSheet } from './ToolsSheet';
 
 interface Props {
   entry: SessionEntry;
@@ -19,6 +20,7 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
   const addSet = useSession((s) => s.addSet);
   const setEntryNote = useSession((s) => s.setEntryNote);
   const [noteOpen, setNoteOpen] = useState(entry.note.length > 0);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const exercise = useLiveQuery(() => db.exercises.get(entry.exerciseId), [entry.exerciseId]);
   const chargePR = useLiveQuery(
     () => db.prs.get(`${entry.exerciseId}:charge`),
@@ -79,6 +81,16 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         <p className="mt-1.5 text-[13px] text-ink-3">Première fois sur cet exercice</p>
       )}
 
+      {entry.coach && (
+        <p
+          className={`tnum mt-1.5 flex items-center gap-1.5 text-[13px] font-medium ${
+            entry.coach.kind === 'increase' ? 'text-accent' : 'text-ink-3'
+          }`}
+        >
+          <IconZap size={14} /> {entry.coach.text}
+        </p>
+      )}
+
       {crown && (
         <div className="mt-2.5 flex items-center gap-2 rounded-[12px] bg-accent-dim px-3 py-2">
           <IconCrown size={16} className="shrink-0 text-accent" />
@@ -105,6 +117,15 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         >
           <IconPlus size={16} /> Ajouter une série
         </Pressable>
+        {!exercise.isTimeBased && (
+          <Pressable
+            className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-raised text-ink-2"
+            onClick={() => setToolsOpen(true)}
+            aria-label="Outils : échauffement et disques"
+          >
+            <IconWrench size={18} />
+          </Pressable>
+        )}
         <Pressable
           className={`flex h-11 w-11 items-center justify-center rounded-[12px] ${
             noteOpen || entry.note ? 'bg-accent-dim text-accent' : 'bg-raised text-ink-2'
@@ -115,6 +136,14 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
           <IconNote size={18} />
         </Pressable>
       </div>
+
+      <ToolsSheet
+        open={toolsOpen}
+        onClose={() => setToolsOpen(false)}
+        entry={entry}
+        entryIndex={entryIndex}
+        exercise={exercise}
+      />
 
       {noteOpen && (
         <textarea

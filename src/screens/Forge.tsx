@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { BADGES } from '../gamification/badges';
+import { buildArsenal, type ArsenalPiece } from '../gamification/arsenal';
 import { useGami } from '../gamification/useGami';
 import { nextTitle, XP_PER_PR, XP_PER_SET, XP_PER_WORKOUT } from '../gamification/xp';
 import { Screen, BackHeader, Card } from '../components/Screen';
@@ -21,8 +22,42 @@ function XPRow({ label, value }: { label: string; value: number }) {
   );
 }
 
+function ArsenalTile({ piece }: { piece: ArsenalPiece }) {
+  const iconCls =
+    piece.tier >= 4
+      ? 'bg-accent text-canvas'
+      : piece.tier === 3
+        ? 'bg-accent-dim text-accent'
+        : piece.tier >= 1
+          ? 'bg-raised-2 text-ink'
+          : 'bg-raised-2 text-ink-3';
+  return (
+    <div
+      className={`flex flex-col items-center rounded-[14px] bg-raised px-2 py-3 text-center ${
+        piece.tier >= 4 ? 'glow-accent' : ''
+      }`}
+    >
+      <span className={`mb-1.5 flex h-10 w-10 items-center justify-center rounded-full ${iconCls}`}>
+        <BadgeIcon icon={piece.icon} size={19} />
+      </span>
+      <p className="w-full truncate text-[12px] font-semibold leading-4">{piece.exercise.name}</p>
+      <p
+        className={`mt-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+          piece.tier >= 3 ? 'text-accent' : 'text-ink-3'
+        }`}
+      >
+        {piece.pieceLabel} · {piece.tierName}
+      </p>
+      <p className="tnum text-[10px] text-ink-3">
+        {piece.next ? `${piece.sets}/${piece.next.at} séries` : `${piece.sets} séries`}
+      </p>
+    </div>
+  );
+}
+
 export function ForgeScreen() {
   const gami = useGami();
+  const arsenal = useLiveQuery(buildArsenal, []);
   const doneChallenges = useLiveQuery(
     async () =>
       (await db.challenges.toArray())
@@ -84,6 +119,19 @@ export function ForgeScreen() {
         <XPRow label="Contrats remplis" value={xp.challengesXp} />
         <XPRow label="Marques gagnées" value={xp.badgesXp} />
       </Card>
+
+      {arsenal && arsenal.length > 0 && (
+        <>
+          <p className="mb-2 text-[13px] font-medium uppercase tracking-wide text-ink-3">
+            L’Arsenal — forgé par tes séries
+          </p>
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            {arsenal.map((piece) => (
+              <ArsenalTile key={piece.exercise.id} piece={piece} />
+            ))}
+          </div>
+        </>
+      )}
 
       <p className="mb-2 text-[13px] font-medium uppercase tracking-wide text-ink-3">
         Marques · {unlocked.length}/{BADGES.length}

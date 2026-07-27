@@ -158,6 +158,21 @@ export interface WrappedMeta {
   lastMonth: string; // 'YYYY-MM'
 }
 
+/** L'onboarding a été passé (même en partant de zéro) */
+export interface OnboardedMeta {
+  id: 'onboarded';
+  at: number;
+}
+
+/** Le Colosse du mois : boss dont les PV = objectif de tonnage mensuel */
+export interface BossRow {
+  id: string; // 'YYYY-MM'
+  name: string;
+  hpTotal: number; // kg
+  createdAt: number;
+  slainAt?: number;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   id: 'settings',
   unit: 'kg',
@@ -167,4 +182,4 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultRestSec: 90,
 };
 
-export type MetaRecord = ActiveSessionMeta | Settings | WrappedMeta;
+export type MetaRecord = ActiveSessionMeta | Settings | WrappedMeta | OnboardedMeta;

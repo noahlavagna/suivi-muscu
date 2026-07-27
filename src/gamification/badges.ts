@@ -24,6 +24,7 @@ export interface BadgeCtx {
   streakWeeks: number;
   thisWeekValid: boolean;
   challengesDone: number;
+  bossesSlain: number;
   programExerciseIds: Set<string>;
   loggedExerciseIds: Set<string>;
 }
@@ -154,6 +155,20 @@ export const BADGES: BadgeDef[] = [
     test: (c) => c.validLogs.some((l) => l.weightKg >= 100 && (l.reps ?? 0) > 0),
   },
   {
+    id: 'tombeur-de-colosse',
+    name: 'Tombeur de Colosse',
+    desc: 'Terrasser ton premier Colosse du mois',
+    icon: 'skull',
+    test: (c) => c.bossesSlain >= 1,
+  },
+  {
+    id: 'fleau-des-colosses',
+    name: 'Fléau des Colosses',
+    desc: 'Terrasser 3 Colosses',
+    icon: 'skull',
+    test: (c) => c.bossesSlain >= 3,
+  },
+  {
     id: 'contractuel',
     name: 'Contractuel',
     desc: '5 contrats hebdomadaires remplis',
@@ -172,11 +187,12 @@ export const BADGES: BadgeDef[] = [
 ];
 
 export async function buildBadgeCtx(): Promise<BadgeCtx> {
-  const [workouts, logs, templates, challenges] = await Promise.all([
+  const [workouts, logs, templates, challenges, bosses] = await Promise.all([
     db.workouts.toArray(),
     db.setLogs.orderBy('completedAt').toArray(),
     db.templates.toArray(),
     db.challenges.toArray(),
+    db.bosses.toArray(),
   ]);
   const finishedWorkouts = workouts.filter((w) => w.finishedAt);
   const finishedIds = new Set(finishedWorkouts.map((w) => w.id));
@@ -210,6 +226,7 @@ export async function buildBadgeCtx(): Promise<BadgeCtx> {
     streakWeeks: streak.weeks,
     thisWeekValid: streak.thisWeekValid,
     challengesDone: challenges.filter((c) => c.doneAt).length,
+    bossesSlain: bosses.filter((b) => b.slainAt).length,
     programExerciseIds: new Set(templates.flatMap((t) => t.items.map((i) => i.exerciseId))),
     loggedExerciseIds: new Set(validLogs.map((l) => l.exerciseId)),
   };

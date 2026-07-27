@@ -10,36 +10,29 @@ const TABLES = [
   'meta',
   'badges',
   'challenges',
+  'bosses',
 ] as const;
 
-interface BackupFile {
+export interface BackupFile {
   app: 'suivi-muscu';
   schemaVersion: number;
   exportedAt: string;
   data: Record<(typeof TABLES)[number], unknown[]>;
 }
 
-export async function exportBackup(): Promise<void> {
+/** Dump complet de la base — utilisé par l'export fichier ET la sauvegarde cloud. */
+export async function buildBackupData(): Promise<BackupFile> {
   const data = {} as BackupFile['data'];
   for (const t of TABLES) data[t] = await db.table(t).toArray();
-  const backup: BackupFile = {
+  return {
     app: 'suivi-muscu',
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     data,
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `suivi-muscu-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** Remplace intégralement les données locales par celles du fichier. */
-export async function importBackup(file: File): Promise<{ workouts: number; sets: number }> {
-  const parsed: unknown = JSON.parse(await file.text());
+export function validateBackup(parsed: unknown): BackupFile {
   if (
     typeof parsed !== 'object' ||
     parsed === null ||
@@ -52,6 +45,13 @@ export async function importBackup(file: File): Promise<{ workouts: number; sets
   if (backup.schemaVersion > SCHEMA_VERSION) {
     throw new Error('Export créé par une version plus récente de l’app.');
   }
+  return backup;
+}
+
+/** Remplace intégralement les données locales par celles du backup. */
+export async function applyBackupData(
+  backup: BackupFile,
+): Promise<{ workouts: number; sets: number }> {
   await db.transaction('rw', TABLES.slice(), async () => {
     for (const t of TABLES) {
       await db.table(t).clear();
@@ -64,4 +64,20 @@ export async function importBackup(file: File): Promise<{ workouts: number; sets
     workouts: (backup.data.workouts ?? []).length,
     sets: (backup.data.setLogs ?? []).length,
   };
+}
+
+export async function exportBackup(): Promise<void> {
+  const backup = await buildBackupData();
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `suivi-muscu-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export async function importBackup(file: File): Promise<{ workouts: number; sets: number }> {
+  const backup = validateBackup(JSON.parse(await file.text()));
+  return applyBackupData(backup);
 }
