@@ -39,7 +39,7 @@ export function validateBackup(parsed: unknown): BackupFile {
     (parsed as BackupFile).app !== 'suivi-muscu' ||
     typeof (parsed as BackupFile).data !== 'object'
   ) {
-    throw new Error('Fichier invalide : ce n’est pas un export Suivi Muscu.');
+    throw new Error('Fichier invalide : ce n’est pas un export La Forge.');
   }
   const backup = parsed as BackupFile;
   if (backup.schemaVersion > SCHEMA_VERSION) {
@@ -72,7 +72,7 @@ export async function exportBackup(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `suivi-muscu-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `la-forge-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

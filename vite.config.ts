@@ -15,9 +15,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
-        name: 'Suivi Muscu',
-        short_name: 'Muscu',
+        name: 'La Forge',
+        // Nom sous l'icône de l'écran d'accueil (Android) — court, sinon tronqué
+        short_name: 'La Forge',
         description: 'Suivi de musculation',
+        lang: 'fr',
         display: 'standalone',
         orientation: 'portrait',
         start_url: BASE,

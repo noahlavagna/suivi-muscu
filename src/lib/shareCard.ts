@@ -125,7 +125,7 @@ export async function shareSummaryCard(
   // Pied
   ctx.fillStyle = PALETTE.ink3;
   ctx.font = font(500, 30);
-  ctx.fillText('Forgé avec Suivi Muscu', 110, H - 100);
+  ctx.fillText('Forgé à La Forge', 110, H - 100);
 
   const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/png'));
   const file = new File([blob], 'seance-forge.png', { type: 'image/png' });
