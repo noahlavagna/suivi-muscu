@@ -32,6 +32,25 @@ export function isStandalone(): boolean {
   );
 }
 
+/**
+ * Corrige la bande morte en bas de l'écran en PWA standalone iOS.
+ *
+ * Avec la status bar translucide, le viewport de mise en page est amputé de la
+ * hauteur de celle-ci (797 px au lieu de 844 sur un iPhone 14) alors que le
+ * contenu démarre bien à y=0 : la tab bar s'arrête donc au-dessus du bas
+ * physique. `screen.height` donne l'écran réel. On n'applique la correction que
+ * si l'écart existe vraiment, pour ne rien casser ailleurs.
+ */
+export function fixStandaloneViewportHeight(): void {
+  if (!isIOS || !isStandalone()) return;
+  const apply = () => {
+    const real = Math.max(window.innerHeight, window.screen.height);
+    document.documentElement.style.setProperty('--app-height', `${real}px`);
+  };
+  apply();
+  window.addEventListener('resize', apply);
+}
+
 /* ————— Invite d'installation Android/Chrome —————
  * L'événement est émis très tôt, souvent avant le montage de React : on
  * l'intercepte dès l'import du module (fait depuis main.tsx) et on le rejoue

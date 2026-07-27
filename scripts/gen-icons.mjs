@@ -39,8 +39,17 @@ function png(width, height, rgba) {
   ]);
 }
 
-// SDF d'un rectangle arrondi centré en (cx, cy)
-function sdRoundRect(px, py, cx, cy, hw, hh, r) {
+// SDF d'un rectangle arrondi centré en (cx, cy), pivoté de `rot` degrés
+function sdRoundRect(px, py, { cx, cy, hw, hh, r, rot = 0 }) {
+  if (rot) {
+    const a = (rot * Math.PI) / 180;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const dx = px - 256;
+    const dy = py - 256;
+    px = 256 + dx * c + dy * s;
+    py = 256 - dx * s + dy * c;
+  }
   const qx = Math.abs(px - cx) - (hw - r);
   const qy = Math.abs(py - cy) - (hh - r);
   const ox = Math.max(qx, 0);
@@ -49,16 +58,18 @@ function sdRoundRect(px, py, cx, cy, hw, hh, r) {
 }
 const smooth = (d) => Math.min(1, Math.max(0, 0.5 - d));
 
+const ROT = -35; // marteau incliné, tête en haut à droite
+const OFF_Y = 25; // recentre optiquement le marteau, plus lourd en haut
+
 function renderIcon(size) {
   const buf = Buffer.alloc(size * size * 4);
   const s = size / 512; // dessiné en coordonnées 512
-  // Haltère : barre + manchons intérieurs + disques extérieurs
+  /* Marteau de forge. Tout tient dans un cercle de rayon ~180 autour du centre :
+     c'est la zone sûre des icônes maskables, rognées en cercle par Android. */
   const shapes = [
-    { cx: 256, cy: 256, hw: 150, hh: 13, r: 13 }, // barre
-    { cx: 118, cy: 256, hw: 17, hh: 62, r: 15 }, // disque int. gauche
-    { cx: 394, cy: 256, hw: 17, hh: 62, r: 15 }, // disque int. droit
-    { cx: 74, cy: 256, hw: 15, hh: 44, r: 13 }, // disque ext. gauche
-    { cx: 438, cy: 256, hw: 15, hh: 44, r: 13 }, // disque ext. droit
+    { cx: 316, cy: 320, hw: 15, hh: 105, r: 15, rot: ROT }, // manche, planté près d'un bout
+    { cx: 284, cy: 176, hw: 76, hh: 46, r: 18, rot: ROT }, // tête, face de frappe
+    { cx: 180, cy: 176, hw: 34, hh: 30, r: 12, rot: ROT }, // panne, plus fine
   ];
   const accent = [232, 150, 60];
   for (let y = 0; y < size; y++) {
@@ -72,7 +83,7 @@ function renderIcon(size) {
       let B = 15 - 6 * t;
       let a = 0;
       for (const sh of shapes) {
-        a = Math.max(a, smooth(sdRoundRect(px, py, sh.cx, sh.cy, sh.hw, sh.hh, sh.r) * s));
+        a = Math.max(a, smooth(sdRoundRect(px, py - OFF_Y, sh) * s));
       }
       R = R + (accent[0] - R) * a;
       G = G + (accent[1] - G) * a;

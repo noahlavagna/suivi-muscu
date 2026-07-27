@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { InstallGate } from './screens/InstallGate';
-import { isMobile, isStandalone } from './lib/platform';
+import { fixStandaloneViewportHeight, isMobile, isStandalone } from './lib/platform';
 import './styles/app.css';
 
 // Enregistré avant tout : sans service worker, Chrome ne propose pas l'installation.
@@ -15,6 +15,8 @@ registerSW({ immediate: true });
  * — jamais l'app elle-même. Le mode dev reste libre pour pouvoir travailler.
  */
 const gated = !import.meta.env.DEV && (!isMobile || !isStandalone());
+
+fixStandaloneViewportHeight();
 
 // Le thème est normalement posé par useSettings au chargement de la base ;
 // le portail s'affiche avant, il lui faut donc sa propre résolution.

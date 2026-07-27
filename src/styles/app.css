@@ -81,7 +81,11 @@
 
 html,
 body {
-  height: 100%;
+  /* 100 % est juste partout sauf en PWA standalone iOS, où le viewport de mise
+     en page est amputé de la hauteur de la status bar translucide : il reste
+     alors une bande morte en bas de l'écran. lib/platform pose --app-height
+     avec la hauteur réelle quand il détecte cet écart. */
+  height: var(--app-height, 100%);
   overflow: hidden;
   overscroll-behavior: none;
   position: fixed;
