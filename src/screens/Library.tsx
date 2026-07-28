@@ -9,23 +9,26 @@ import { Stepper } from '../components/ui/Stepper';
 import { Toggle } from '../components/ui/Toggle';
 import { IconSearch } from '../components/ui/Icons';
 import { fmtTimer } from '../lib/format';
+import { matches } from '../lib/search';
 
 export function LibraryScreen() {
   const [query, setQuery] = useState('');
+  const [only, setOnly] = useState<MuscleGroup | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const exercises = useLiveQuery(() => db.exercises.toArray(), []);
   const editing = exercises?.find((e) => e.id === editId) ?? null;
 
   const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const filtered = (exercises ?? []).filter(
-      (e) => q === '' || e.name.toLowerCase().includes(q),
+      (e) => matches(e, query) && (only === null || e.muscleGroups[0] === only),
     );
     const byGroup = new Map<MuscleGroup, Exercise[]>();
     for (const g of MUSCLE_GROUPS) byGroup.set(g, []);
     for (const e of filtered) byGroup.get(e.muscleGroups[0])?.push(e);
     return [...byGroup.entries()].filter(([, list]) => list.length > 0);
-  }, [exercises, query]);
+  }, [exercises, query, only]);
+
+  const total = groups.reduce((n, [, list]) => n + list.length, 0);
 
   const patch = (p: Partial<Exercise>) => {
     if (editId) void db.exercises.update(editId, p);
@@ -44,6 +47,25 @@ export function LibraryScreen() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+
+      {/* 228 exercices au catalogue : le filtre par groupe évite le mur de liste */}
+      <div className="scroll-x mb-4 flex gap-1.5 overflow-x-auto pb-1">
+        {MUSCLE_GROUPS.map((g) => (
+          <Pressable
+            key={g}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium capitalize ${
+              only === g ? 'bg-accent text-canvas' : 'bg-raised text-ink-2'
+            }`}
+            onClick={() => setOnly(only === g ? null : g)}
+          >
+            {g}
+          </Pressable>
+        ))}
+      </div>
+
+      <p className="mb-3 text-[12px] text-ink-3">
+        {total} exercice{total > 1 ? 's' : ''}
+      </p>
 
       {groups.map(([group, list]) => (
         <section key={group} className="mb-5">
