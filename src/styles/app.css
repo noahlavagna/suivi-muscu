@@ -117,6 +117,16 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Rangées de filtres : défilement latéral sans barre visible */
+.scroll-x {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
 button,
 [role='button'] {
   -webkit-tap-highlight-color: transparent;

@@ -40,6 +40,8 @@ export interface LastPerf {
 export interface SessionEntry {
   exerciseId: string;
   restSec: number;
+  /** Reprise de TemplateItem : les entrées consécutives de même clé s'enchaînent */
+  supersetKey?: string;
   templateNote?: string;
   note: string;
   sets: SessionSet[];
@@ -154,6 +156,7 @@ async function buildEntries(
       return {
         exerciseId: item.exerciseId,
         restSec: item.restSecOverride ?? ex?.defaultRestSec ?? 90,
+        ...(item.supersetKey ? { supersetKey: item.supersetKey } : {}),
         templateNote: item.note ?? ex?.note,
         note: '',
         sets,
@@ -163,6 +166,24 @@ async function buildEntries(
       };
     }),
   );
+}
+
+/** Secondes de transition entre deux exercices d'un même superset. */
+const SUPERSET_TRANSITION_SEC = 15;
+
+/**
+ * Bornes du bloc de superset contenant l'entrée `ei` : les entrées
+ * **consécutives** partageant la même clé. Renvoie `[ei, ei]` pour un exercice
+ * seul, ce qui rend le reste du code indifférent à la présence d'un bloc.
+ */
+export function supersetRange(entries: SessionEntry[], ei: number): [number, number] {
+  const key = entries[ei]?.supersetKey;
+  if (!key) return [ei, ei];
+  let start = ei;
+  while (start > 0 && entries[start - 1].supersetKey === key) start -= 1;
+  let end = ei;
+  while (end < entries.length - 1 && entries[end + 1].supersetKey === key) end += 1;
+  return [start, end];
 }
 
 async function tonnageOfWorkout(workoutId: string): Promise<number> {
@@ -344,6 +365,28 @@ export const useSession = create<SessionStore>((set, get) => ({
         });
       }
     });
+    // Superset : on enchaîne sur l'exercice suivant du bloc après une courte
+    // transition, le repos complet n'arrivant qu'une fois le tour bouclé.
+    const [blockStart, blockEnd] = supersetRange(entries, ei);
+    if (blockEnd > blockStart) {
+      const fresh = get().entries;
+      const pending = (i: number) => fresh[i].sets.some((x) => !x.done);
+      let next = -1;
+      for (let i = ei + 1; i <= blockEnd && next === -1; i++) if (pending(i)) next = i;
+      // Rien après : on repart au début du bloc pour le tour suivant
+      if (next === -1)
+        for (let i = blockStart; i <= ei && next === -1; i++) if (pending(i)) next = i;
+
+      if (next !== -1) {
+        const newRound = next <= ei;
+        const totalSec = newRound ? fresh[blockEnd].restSec : SUPERSET_TRANSITION_SEC;
+        set({ index: next, rest: { endsAt: Date.now() + totalSec * 1000, totalSec } });
+        persistActiveMeta(get());
+        return;
+      }
+      // Bloc entièrement terminé : on retombe sur le repos normal
+    }
+
     // Repos automatique — sauf après la toute dernière série de la séance
     const isLastSet =
       ei === entries.length - 1 && si === entry.sets.length - 1;

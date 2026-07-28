@@ -130,6 +130,11 @@ export interface TemplateItem {
   sets: TargetSet[];
   restSecOverride?: number;
   note?: string;
+  /**
+   * Superset : les items **consécutifs** partageant cette clé s'enchaînent sans
+   * repos, le repos ne s'appliquant qu'en fin de tour. Absent = exercice seul.
+   */
+  supersetKey?: string;
 }
 
 export interface WorkoutTemplate {

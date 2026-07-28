@@ -61,6 +61,11 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         <span className="rounded-md bg-raised-2 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-ink-2">
           {exercise.muscleGroups[0]}
         </span>
+        {entry.supersetKey && (
+          <span className="rounded-md bg-accent-dim px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+            Superset
+          </span>
+        )}
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
           <IconTimer size={14} />
           <span className="tnum">{fmtTimer(entry.restSec)}</span>
