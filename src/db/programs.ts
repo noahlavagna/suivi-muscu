@@ -1,33 +1,11 @@
 import { nanoid } from 'nanoid';
 import { db } from './db';
-import type { Exercise, TargetSet, TemplateItem, WorkoutTemplate } from './types';
+import type { TargetSet, TemplateItem, WorkoutTemplate } from './types';
 
 /** Programmes préfaits proposés à l'onboarding et importables depuis Programme. */
 
 const reps = (min: number, max: number, count: number): TargetSet[] =>
   Array.from({ length: count }, () => ({ type: 'normal' as const, repsMin: min, repsMax: max }));
-
-type ExoSeed = [
-  id: string,
-  name: string,
-  groups: Exercise['muscleGroups'],
-  incr: number,
-  rest: number,
-];
-
-/** Exercices génériques requis par les préfaits (créés seulement s'ils manquent). */
-const PRESET_EXERCISES: ExoSeed[] = [
-  ['squat-barre', 'Squat barre', ['quadriceps', 'fessiers'], 2.5, 180],
-  ['presse-cuisses', 'Presse à cuisses', ['quadriceps', 'fessiers'], 2.5, 150],
-  ['rdl-halteres', 'Soulevé de terre roumain haltères', ['ischios', 'fessiers'], 2, 150],
-  ['hip-thrust', 'Hip thrust', ['fessiers', 'ischios'], 2.5, 120],
-  ['dev-couche-barre', 'Développé couché barre', ['pectoraux', 'triceps'], 2.5, 150],
-  ['ohp-barre', 'Développé militaire barre', ['épaules', 'triceps'], 2.5, 150],
-  ['rowing-halteres', 'Rowing haltère unilatéral', ['dos'], 2, 120],
-  ['tirage-horizontal', 'Tirage horizontal machine', ['dos', 'biceps'], 2.5, 120],
-  ['curl-halteres', 'Curl haltères', ['biceps'], 2, 90],
-  ['ext-triceps-poulie', 'Extension triceps poulie', ['triceps'], 2.5, 90],
-];
 
 interface PresetDay {
   name: string;
@@ -56,7 +34,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         items: [
           ['squat-barre', reps(6, 8, 3)],
           ['dev-couche-barre', reps(6, 8, 3)],
-          ['tirage-horizontal', reps(8, 10, 3)],
+          ['rowing-machine', reps(8, 10, 3)],
           ['elev-lat-poulie', reps(12, 15, 2)],
           ['curl-halteres', reps(10, 12, 2)],
         ],
@@ -65,11 +43,11 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         name: 'Full-body B',
         weekday: 3,
         items: [
-          ['rdl-halteres', reps(8, 10, 3)],
-          ['ohp-barre', reps(6, 8, 3)],
+          ['souleve-roumain', reps(8, 10, 3)],
+          ['dev-militaire-barre', reps(6, 8, 3)],
           ['traction-verticale', reps(6, 10, 3)],
           ['leg-extension', reps(10, 12, 2)],
-          ['ext-triceps-poulie', reps(10, 12, 2)],
+          ['ext-triceps-corde', reps(10, 12, 2)],
         ],
       },
       {
@@ -78,7 +56,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         items: [
           ['presse-cuisses', reps(8, 10, 3)],
           ['dev-couche-halteres', reps(8, 10, 3)],
-          ['rowing-halteres', reps(8, 10, 3)],
+          ['rowing-haltere-uni', reps(8, 10, 3)],
           ['hip-thrust', reps(8, 10, 2)],
           ['face-pull', reps(12, 15, 2)],
         ],
@@ -96,10 +74,10 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         weekday: 1,
         items: [
           ['dev-couche-barre', reps(6, 8, 3)],
-          ['tirage-horizontal', reps(8, 10, 3)],
-          ['ohp-barre', reps(8, 10, 2)],
+          ['rowing-machine', reps(8, 10, 3)],
+          ['dev-militaire-barre', reps(8, 10, 2)],
           ['curl-halteres', reps(10, 12, 2)],
-          ['ext-triceps-poulie', reps(10, 12, 2)],
+          ['ext-triceps-corde', reps(10, 12, 2)],
         ],
       },
       {
@@ -107,7 +85,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         weekday: 2,
         items: [
           ['squat-barre', reps(6, 8, 3)],
-          ['rdl-halteres', reps(8, 10, 3)],
+          ['souleve-roumain', reps(8, 10, 3)],
           ['leg-extension', reps(12, 15, 2)],
           ['leg-curl', reps(10, 12, 2)],
         ],
@@ -116,7 +94,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         name: 'Haut B',
         weekday: 4,
         items: [
-          ['ohp-barre', reps(6, 8, 3)],
+          ['dev-militaire-barre', reps(6, 8, 3)],
           ['traction-verticale', reps(6, 10, 3)],
           ['dev-couche-halteres', reps(8, 10, 3)],
           ['face-pull', reps(12, 15, 2)],
@@ -148,7 +126,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
           ['dev-couche-barre', reps(6, 8, 3)],
           ['dev-incline-smith', reps(8, 10, 2)],
           ['elev-lat-poulie', reps(12, 15, 3)],
-          ['ext-triceps-poulie', reps(10, 12, 3)],
+          ['ext-triceps-corde', reps(10, 12, 3)],
         ],
       },
       {
@@ -156,7 +134,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         weekday: 2,
         items: [
           ['traction-verticale', reps(6, 10, 3)],
-          ['rowing-halteres', reps(8, 10, 3)],
+          ['rowing-haltere-uni', reps(8, 10, 3)],
           ['face-pull', reps(12, 15, 3)],
           ['curl-halteres', reps(10, 12, 3)],
         ],
@@ -166,7 +144,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         weekday: 3,
         items: [
           ['squat-barre', reps(6, 8, 3)],
-          ['rdl-halteres', reps(8, 10, 3)],
+          ['souleve-roumain', reps(8, 10, 3)],
           ['leg-extension', reps(12, 15, 2)],
           ['leg-curl', reps(10, 12, 2)],
         ],
@@ -175,10 +153,10 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         name: 'Push B',
         weekday: 4,
         items: [
-          ['ohp-barre', reps(6, 8, 3)],
+          ['dev-militaire-barre', reps(6, 8, 3)],
           ['dev-couche-halteres', reps(8, 10, 3)],
           ['pec-fly-vav', reps(10, 12, 2)],
-          ['ext-triceps-poulie', reps(10, 12, 2)],
+          ['ext-triceps-corde', reps(10, 12, 2)],
         ],
       },
       {
@@ -186,7 +164,7 @@ export const PROGRAM_PRESETS: ProgramPreset[] = [
         weekday: 5,
         items: [
           ['rowing-smith', reps(6, 8, 3)],
-          ['tirage-horizontal', reps(8, 10, 3)],
+          ['rowing-machine', reps(8, 10, 3)],
           ['oiseau-vav-cuffs', reps(12, 15, 2)],
           ['curl-marteau-cuffs', reps(10, 12, 3)],
         ],
@@ -222,16 +200,8 @@ export async function applyForgePreset(): Promise<void> {
   );
 }
 
-/** Crée les exercices manquants puis ajoute les séances du préfait au programme. */
+/** Ajoute les séances du préfait au programme (les exercices viennent du catalogue). */
 export async function applyPreset(preset: ProgramPreset): Promise<void> {
-  const missing: Exercise[] = [];
-  for (const [id, name, muscleGroups, weightIncrementKg, defaultRestSec] of PRESET_EXERCISES) {
-    if (!(await db.exercises.get(id))) {
-      missing.push({ id, name, muscleGroups, weightIncrementKg, defaultRestSec, isTimeBased: false });
-    }
-  }
-  if (missing.length > 0) await db.exercises.bulkPut(missing);
-
   const existing = await db.templates.toArray();
   const orderStart = existing.length > 0 ? Math.max(...existing.map((t) => t.order)) + 1 : 0;
   const templates: WorkoutTemplate[] = preset.days.map((day, i) => ({

@@ -10,7 +10,7 @@ import type {
   Workout,
   WorkoutTemplate,
 } from './types';
-import { seedIfEmpty } from './seed';
+import { syncCatalogue } from './seed';
 
 export const SCHEMA_VERSION = 3;
 
@@ -44,7 +44,7 @@ db.version(SCHEMA_VERSION).stores({
   bosses: 'id',
 });
 
-export const dbReady = seedIfEmpty(db).then(async () => {
+export const dbReady = syncCatalogue(db).then(async () => {
   // Demande le stockage persistant : réduit fortement le risque d'éviction iOS
   if (navigator.storage?.persist) {
     try {

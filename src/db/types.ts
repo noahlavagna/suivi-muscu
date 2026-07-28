@@ -2,24 +2,82 @@ export type MuscleGroup =
   | 'épaules'
   | 'dos'
   | 'pectoraux'
+  | 'trapèzes'
   | 'quadriceps'
   | 'ischios'
   | 'fessiers'
   | 'adducteurs'
+  | 'mollets'
   | 'biceps'
   | 'triceps'
+  | 'avant-bras'
+  | 'abdos'
+  | 'lombaires'
+  | 'cardio'
   | 'mobilité';
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
-  'épaules',
-  'dos',
   'pectoraux',
+  'dos',
+  'épaules',
+  'trapèzes',
+  'biceps',
+  'triceps',
+  'avant-bras',
   'quadriceps',
   'ischios',
   'fessiers',
   'adducteurs',
-  'biceps',
-  'triceps',
+  'mollets',
+  'abdos',
+  'lombaires',
+  'cardio',
+  'mobilité',
+];
+
+/** Groupes qui comptent dans le volume de musculation (hors cardio et mobilité) */
+export const LIFTING_GROUPS: MuscleGroup[] = MUSCLE_GROUPS.filter(
+  (g) => g !== 'cardio' && g !== 'mobilité',
+);
+
+export type Equipment =
+  | 'barre'
+  | 'haltères'
+  | 'poulie'
+  | 'machine'
+  | 'smith'
+  | 'poids du corps'
+  | 'kettlebell'
+  | 'élastique'
+  | 'autre';
+
+export const EQUIPMENTS: Equipment[] = [
+  'barre',
+  'haltères',
+  'poulie',
+  'machine',
+  'smith',
+  'poids du corps',
+  'kettlebell',
+  'élastique',
+  'autre',
+];
+
+/** Nature du mouvement — sert au filtrage, pas au calcul */
+export type ExerciseFamily =
+  | 'polyarticulaire'
+  | 'isolation'
+  | 'gainage'
+  | 'mobilité'
+  | 'explosif'
+  | 'cardio';
+
+export const FAMILIES: ExerciseFamily[] = [
+  'polyarticulaire',
+  'isolation',
+  'gainage',
+  'explosif',
+  'cardio',
   'mobilité',
 ];
 
@@ -45,10 +103,16 @@ export const SET_TYPE_LABEL: Record<SetType, string> = {
 export interface Exercise {
   id: string;
   name: string;
+  /** Le premier est le groupe principal, les suivants sont secondaires */
   muscleGroups: MuscleGroup[];
   weightIncrementKg: number;
   defaultRestSec: number;
   isTimeBased: boolean;
+  /** Complétés à la volée pour les bases antérieures au catalogue (voir catalogue.ts) */
+  equipment?: Equipment;
+  family?: ExerciseFamily;
+  /** Termes de recherche alternatifs : abréviations, noms anglais */
+  aliases?: string[];
   note?: string;
   archivedAt?: number;
 }

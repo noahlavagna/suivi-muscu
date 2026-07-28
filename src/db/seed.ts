@@ -1,6 +1,7 @@
 import type Dexie from 'dexie';
 import type { Exercise, TargetSet, WorkoutTemplate } from './types';
 import { DEFAULT_SETTINGS } from './types';
+import { CATALOGUE } from './catalogue';
 
 const reps = (min: number, max: number, count = 1): TargetSet[] =>
   Array.from({ length: count }, () => ({ type: 'normal' as const, repsMin: min, repsMax: max }));
@@ -10,43 +11,6 @@ const backoff = (min: number, max: number, count = 1): TargetSet[] =>
 
 const holds = (sec: number, count: number): TargetSet[] =>
   Array.from({ length: count }, () => ({ type: 'hold' as const, durationSec: sec }));
-
-type ExoSeed = [
-  id: string,
-  name: string,
-  groups: Exercise['muscleGroups'],
-  incr: number,
-  rest: number,
-  timeBased?: boolean,
-  note?: string,
-];
-
-const EXERCISES: ExoSeed[] = [
-  ['dev-militaire', 'Développé militaire haltères', ['épaules', 'triceps'], 2, 150],
-  ['face-pull', 'Face pull corde assis', ['épaules', 'dos'], 2.5, 90],
-  ['elev-lat-poulie', 'Élévations latérales poulie unilatérale', ['épaules'], 1, 90],
-  ['elev-front-cuffs', 'Élévations frontales cuffs poulie', ['épaules'], 1, 90],
-  ['decompression', 'Décompression articulaire', ['mobilité'], 2.5, 45, true],
-  ['deadlift-smith', 'Deadlift Smith', ['ischios', 'fessiers', 'dos'], 2.5, 150, false, 'RIR 2/3'],
-  ['rowing-smith', 'Rowing Smith', ['dos'], 2.5, 150],
-  ['traction-verticale', 'Traction verticale machine', ['dos', 'biceps'], 2.5, 150],
-  ['dev-incline-smith', 'Développé incliné Smith', ['pectoraux', 'épaules', 'triceps'], 2.5, 150],
-  ['pec-fly-vav', 'Pec fly poulie vis-à-vis', ['pectoraux'], 1, 90],
-  ['ecarte-incline-vav', 'Écarté incliné banc 30° poulie', ['pectoraux'], 1, 90],
-  ['leg-extension', 'Leg extension', ['quadriceps'], 2.5, 120],
-  ['leg-curl', 'Leg curl allongé', ['ischios'], 2.5, 120],
-  ['fentes-bulgares', 'Fentes bulgares', ['quadriceps', 'fessiers'], 2, 120],
-  ['machine-adducteurs', 'Machine adducteurs', ['adducteurs'], 2.5, 90, false, 'RIR 2/3'],
-  ['ext-triceps-barre', 'Extension triceps barre', ['triceps'], 2.5, 90],
-  ['overhead-ext-barre', 'Overhead extension barre', ['triceps'], 2.5, 90],
-  ['curl-ez-elastique', 'Curl barre EZ + élastique', ['biceps'], 2.5, 90],
-  ['curl-marteau-cuffs', 'Curl marteau poulie basse cuffs', ['biceps'], 1, 90],
-  ['dev-couche-halteres', 'Développé couché haltères', ['pectoraux', 'triceps'], 2, 150],
-  ['dips-lestees', 'Dips lestés', ['pectoraux', 'triceps'], 2.5, 150],
-  ['tirage-gorilla', 'Tirage gorilla poulie', ['dos'], 2.5, 90],
-  ['oiseau-vav-cuffs', 'Oiseau poulie vis-à-vis cuffs', ['épaules'], 1, 90],
-  ['elev-lat-allonge', 'Élévations latérales allongé', ['épaules'], 2, 90],
-];
 
 /** Le programme d'origine de l'app — proposé comme préfait « Forge 4 jours ». */
 export const SEED_TEMPLATES: WorkoutTemplate[] = [
@@ -135,28 +99,48 @@ export const SEED_TEMPLATES: WorkoutTemplate[] = [
   },
 ];
 
-export async function seedIfEmpty(db: Dexie): Promise<void> {
-  const count = await db.table('exercises').count();
-  if (count > 0) {
-    // S'assure que les réglages existent même sur une base déjà seedée
+/**
+ * Aligne la base sur le catalogue livré avec l'app, à chaque lancement.
+ *
+ * Remplace l'ancien `seedIfEmpty`, qui ne remplissait que les bases vierges :
+ * une base déjà installée n'aurait jamais vu les nouveaux exercices.
+ *
+ * Deux règles, pour ne rien casser chez l'utilisateur :
+ *  - un exercice déjà présent n'est jamais réécrit (nom, groupes, incrément,
+ *    repos, archivage lui appartiennent) ; on ne complète que les champs
+ *    ajoutés depuis, restés `undefined` ;
+ *  - un exercice archivé n'est pas ressuscité, puisqu'on ne le réinsère pas.
+ */
+export async function syncCatalogue(db: Dexie): Promise<void> {
+  const table = db.table<Exercise>('exercises');
+  const existing = await table.toArray();
+  const known = new Map(existing.map((e) => [e.id, e]));
+
+  const toAdd = CATALOGUE.filter((e) => !known.has(e.id));
+
+  // Champs apparus avec le catalogue : on les rétro-remplit sans rien écraser
+  const toPatch: Exercise[] = [];
+  for (const current of existing) {
+    const ref = CATALOGUE.find((c) => c.id === current.id);
+    const patch: Partial<Exercise> = {};
+    if (current.equipment === undefined) patch.equipment = ref?.equipment ?? 'autre';
+    if (current.family === undefined)
+      patch.family = ref?.family ?? (current.isTimeBased ? 'mobilité' : 'isolation');
+    if (current.aliases === undefined && ref?.aliases) patch.aliases = ref.aliases;
+    if (Object.keys(patch).length > 0) toPatch.push({ ...current, ...patch });
+  }
+
+  if (toAdd.length === 0 && toPatch.length === 0) {
     const settings = await db.table('meta').get('settings');
     if (!settings) await db.table('meta').put(DEFAULT_SETTINGS);
     return;
   }
-  const exercises: Exercise[] = EXERCISES.map(
-    ([id, name, muscleGroups, weightIncrementKg, defaultRestSec, isTimeBased, note]) => ({
-      id,
-      name,
-      muscleGroups,
-      weightIncrementKg,
-      defaultRestSec,
-      isTimeBased: isTimeBased ?? false,
-      ...(note ? { note } : {}),
-    }),
-  );
-  // Les séances ne sont plus seedées : l'onboarding laisse choisir un programme
+
+  // Les séances ne sont pas seedées : l'onboarding laisse choisir un programme
   await db.transaction('rw', ['exercises', 'meta'], async () => {
-    await db.table('exercises').bulkPut(exercises);
-    await db.table('meta').put(DEFAULT_SETTINGS);
+    if (toAdd.length > 0) await table.bulkAdd(toAdd);
+    if (toPatch.length > 0) await table.bulkPut(toPatch);
+    const settings = await db.table('meta').get('settings');
+    if (!settings) await db.table('meta').put(DEFAULT_SETTINGS);
   });
 }
