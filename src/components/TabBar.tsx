@@ -16,7 +16,7 @@ export function TabBar() {
   const setTab = useNav((s) => s.setTab);
   return (
     <nav
-      className="glass absolute inset-x-0 bottom-0 z-40"
+      className="glass glass-edge absolute inset-x-0 bottom-0 z-40"
       style={{ paddingBottom: 'var(--safe-bottom)' }}
       aria-label="Navigation principale"
     >

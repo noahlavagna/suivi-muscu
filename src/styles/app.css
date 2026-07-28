@@ -148,6 +148,13 @@ textarea {
   }
 }
 
+/* Collé aux bords de l'écran (tab bar) : seul le liseré du haut se justifie,
+   les autres se voient comme un trait clair sur le bord physique. */
+.glass-edge {
+  border-inline: 0;
+  border-block-end: 0;
+}
+
 .hairline-t {
   box-shadow: 0 -0.5px 0 var(--separator);
 }
