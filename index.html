@@ -9,7 +9,15 @@
     <title>La Forge</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!--
+      Surtout pas `black-translucent` : iOS donne alors à la webview une hauteur
+      de « écran moins status bar » tout en la calant en haut, ce qui laisse une
+      bande morte en bas, hors de la webview et impossible à combler en CSS.
+      Avec `black`, la webview est posée sous la status bar et descend jusqu'au
+      bas de l'écran. env(safe-area-inset-top) devient 0, c'est voulu : plus
+      rien ne recouvre le contenu en haut.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <!-- Nom du raccourci iOS quand on l'ajoute à l'écran d'accueil -->
     <meta name="apple-mobile-web-app-title" content="La Forge" />
     <meta name="theme-color" content="#0C0B0A" />

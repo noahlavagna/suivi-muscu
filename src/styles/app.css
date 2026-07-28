@@ -13,7 +13,9 @@
   --radius-card: 16px;
   --radius-sheet: 28px;
 
-  --safe-top: env(safe-area-inset-top, 0px);
+  /* Plancher de 8px : avec la status bar opaque l'encoche vaut 0, et les titres
+     viendraient sinon coller au bord de la barre système. */
+  --safe-top: max(env(safe-area-inset-top, 0px), 8px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -81,11 +83,7 @@
 
 html,
 body {
-  /* 100 % est juste partout sauf en PWA standalone iOS, où le viewport de mise
-     en page est amputé de la hauteur de la status bar translucide : il reste
-     alors une bande morte en bas de l'écran. lib/platform pose --app-height
-     avec la hauteur réelle quand il détecte cet écart. */
-  height: var(--app-height, 100%);
+  height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
   position: fixed;
