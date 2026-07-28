@@ -6,6 +6,7 @@ import { PR_LABEL } from '../db/prs';
 import type { ActiveSessionMeta, PRKind, SetLog, TargetSet } from '../db/types';
 import { todayISO } from '../lib/dates';
 import { haptics } from '../lib/haptics';
+import { nextInSuperset } from '../lib/superset';
 import { sounds } from '../lib/sound';
 import { useToasts } from './toasts';
 import { evaluateBadges } from '../gamification/badges';
@@ -170,21 +171,6 @@ async function buildEntries(
 
 /** Secondes de transition entre deux exercices d'un même superset. */
 const SUPERSET_TRANSITION_SEC = 15;
-
-/**
- * Bornes du bloc de superset contenant l'entrée `ei` : les entrées
- * **consécutives** partageant la même clé. Renvoie `[ei, ei]` pour un exercice
- * seul, ce qui rend le reste du code indifférent à la présence d'un bloc.
- */
-export function supersetRange(entries: SessionEntry[], ei: number): [number, number] {
-  const key = entries[ei]?.supersetKey;
-  if (!key) return [ei, ei];
-  let start = ei;
-  while (start > 0 && entries[start - 1].supersetKey === key) start -= 1;
-  let end = ei;
-  while (end < entries.length - 1 && entries[end + 1].supersetKey === key) end += 1;
-  return [start, end];
-}
 
 async function tonnageOfWorkout(workoutId: string): Promise<number> {
   const logs = await db.setLogs.where('workoutId').equals(workoutId).toArray();
@@ -367,25 +353,15 @@ export const useSession = create<SessionStore>((set, get) => ({
     });
     // Superset : on enchaîne sur l'exercice suivant du bloc après une courte
     // transition, le repos complet n'arrivant qu'une fois le tour bouclé.
-    const [blockStart, blockEnd] = supersetRange(entries, ei);
-    if (blockEnd > blockStart) {
-      const fresh = get().entries;
-      const pending = (i: number) => fresh[i].sets.some((x) => !x.done);
-      let next = -1;
-      for (let i = ei + 1; i <= blockEnd && next === -1; i++) if (pending(i)) next = i;
-      // Rien après : on repart au début du bloc pour le tour suivant
-      if (next === -1)
-        for (let i = blockStart; i <= ei && next === -1; i++) if (pending(i)) next = i;
-
-      if (next !== -1) {
-        const newRound = next <= ei;
-        const totalSec = newRound ? fresh[blockEnd].restSec : SUPERSET_TRANSITION_SEC;
-        set({ index: next, rest: { endsAt: Date.now() + totalSec * 1000, totalSec } });
-        persistActiveMeta(get());
-        return;
-      }
-      // Bloc entièrement terminé : on retombe sur le repos normal
+    const fresh = get().entries;
+    const next = nextInSuperset(fresh, ei, (i) => fresh[i].sets.some((x) => !x.done));
+    if (next) {
+      const totalSec = next.newRound ? fresh[ei].restSec : SUPERSET_TRANSITION_SEC;
+      set({ index: next.index, rest: { endsAt: Date.now() + totalSec * 1000, totalSec } });
+      persistActiveMeta(get());
+      return;
     }
+    // Bloc bouclé (ou exercice seul) : on retombe sur le repos normal
 
     // Repos automatique — sauf après la toute dernière série de la séance
     const isLastSet =

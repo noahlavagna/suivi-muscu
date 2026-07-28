@@ -21,6 +21,7 @@ import { fmtTimer } from '../lib/format';
 import { haptics } from '../lib/haptics';
 import { estimateDurationSec, SET_PRESETS, volumeByGroup } from '../lib/sessionPlan';
 import { useToasts } from '../state/toasts';
+import { supersetLabels as labelsFor } from '../lib/superset';
 
 const WEEKDAYS: { d: number; label: string }[] = [
   { d: 1, label: 'Lun' },
@@ -123,33 +124,7 @@ export function TemplateEditorScreen({ templateId }: { templateId: string }) {
   const volume = volumeByGroup(items, exMap);
   const maxVolume = Math.max(...volume.map((v) => v.sets), 1);
 
-  /**
-   * Étiquette de superset par ligne. Un bloc n'existe que si au moins deux
-   * items **consécutifs** partagent la clé : un groupe cassé par un
-   * réordonnancement redevient donc silencieusement une suite d'exercices
-   * seuls, sans données incohérentes à nettoyer.
-   */
-  const supersetLabels = useMemo(() => {
-    const labels: (string | null)[] = rows.map(() => null);
-    let letter = 0;
-    let i = 0;
-    while (i < rows.length) {
-      const key = rows[i].item.supersetKey;
-      if (!key) {
-        i += 1;
-        continue;
-      }
-      let j = i;
-      while (j + 1 < rows.length && rows[j + 1].item.supersetKey === key) j += 1;
-      if (j > i) {
-        const name = `Superset ${String.fromCharCode(65 + letter)}`;
-        for (let k = i; k <= j; k++) labels[k] = name;
-        letter += 1;
-      }
-      i = j + 1;
-    }
-    return labels;
-  }, [rows]);
+  const supersetLabels = useMemo(() => labelsFor(rows.map((r) => r.item)), [rows]);
 
   if (!template) return <Screen>{null}</Screen>;
 

@@ -10,6 +10,7 @@ import { IconCrown } from '../components/ui/Icons';
 import { LineChart, type LinePoint } from '../components/charts/LineChart';
 import { fmtNumber, fmtWeight, kgToUnit, type Unit } from '../lib/format';
 import { fmtDateShort } from '../lib/dates';
+import { loadForReps, REP_MAX_TARGETS } from '../lib/analytics';
 
 type Metric = 'e1rm' | 'charge' | 'volume';
 type Period = '8s' | '6m' | '1a' | 'tout';
@@ -78,6 +79,9 @@ export function ExerciseDetailScreen({ exerciseId }: { exerciseId: string }) {
     sessions.set(l.workoutId, list);
   }
 
+  // Meilleur 1RM estimé toutes périodes confondues : base des charges théoriques
+  const bestE1rm = prs.find((p) => p.kind === 'e1rm')?.value ?? 0;
+
   const formatY = (v: number) => `${fmtNumber(v, 0)}${metric === 'volume' ? '' : ` ${unit}`}`;
 
   return (
@@ -143,6 +147,30 @@ export function ExerciseDetailScreen({ exerciseId }: { exerciseId: string }) {
                 </div>
               );
             })}
+          </Card>
+        </>
+      )}
+
+      {bestE1rm > 0 && (
+        <>
+          <p className="mb-2 text-[13px] font-medium uppercase tracking-wide text-ink-3">
+            Charges théoriques
+          </p>
+          <Card className="mb-4">
+            <p className="mb-3 text-[12px] leading-4.5 text-ink-2">
+              Dérivées de ton 1RM estimé ({fmtWeight(bestE1rm, unit)}) par la formule d’Epley. Un
+              repère pour choisir une charge, pas une garantie.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {REP_MAX_TARGETS.map((reps) => (
+                <div key={reps} className="min-w-[68px] flex-1 rounded-[10px] bg-raised-2 px-2 py-2">
+                  <p className="tnum text-[11px] font-medium text-ink-3">{reps} reps</p>
+                  <p className="tnum text-[15px] font-bold">
+                    {fmtNumber(kgToUnit(loadForReps(bestE1rm, reps), unit))}
+                  </p>
+                </div>
+              ))}
+            </div>
           </Card>
         </>
       )}
