@@ -138,7 +138,7 @@ export function CloudCard() {
               </span>
             </div>
             <p className="text-[12px] text-ink-3">
-              Sauvegarde automatique après chaque séance terminée.
+              Sauvegarde automatique : séances, records, badges, contrats, colosses, paliers et réglages — dès qu’une donnée change et quand tu quittes l’app.
             </p>
             <Pressable className={btn} disabled={cloud.busy} onClick={() => void cloud.backupNow()}>
               Sauvegarder maintenant

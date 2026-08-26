@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../cloud/client';
 import { cloudConfigured } from '../cloud/config';
 import { applyBackupData, buildBackupData, validateBackup } from '../db/backup';
+import { installDirtyTracking, isDirty, markClean, onDirty, withoutDirtyTracking } from '../db/dirty';
 
 /**
  * Compte + sauvegarde cloud : email + mot de passe.
@@ -14,7 +15,15 @@ import { applyBackupData, buildBackupData, validateBackup } from '../db/backup';
  * Suppose « Confirm email » désactivé côté Supabase : l'inscription ouvre
  * directement la session. Si la confirmation est réactivée, `signUp` le
  * détecte (aucune session renvoyée) et l'annonce à l'utilisateur.
+ *
+ * La sauvegarde part toute seule : quelques secondes après la dernière
+ * écriture en base, et immédiatement quand l'app passe en arrière-plan. Elle
+ * ne dépendait avant que de la fin de séance, ce qui laissait dehors tout ce
+ * qui se joue ailleurs — badges, paliers, séances types, réglages.
  */
+
+/** Silence après la dernière écriture avant d'envoyer (une séance écrit en rafale). */
+const AUTO_BACKUP_DEBOUNCE_MS = 12_000;
 
 export const MIN_PASSWORD = 8;
 
@@ -51,6 +60,7 @@ export const useCloud = create<CloudState>((set, get) => ({
       set({ email: session?.user.email ?? null });
     });
     if (data.session) await refreshBackupMeta(set);
+    installAutoBackup();
   },
 
   async signIn(email, password) {
@@ -99,6 +109,7 @@ export const useCloud = create<CloudState>((set, get) => ({
         .from('backups')
         .upsert({ user_id: userId, data: backup, updated_at: now });
       if (error) throw new Error(error.message);
+      markClean();
       set({ lastBackupAt: now, ...(silent ? {} : { busy: false, info: 'Sauvegarde envoyée.' }) });
     } catch (e) {
       if (!silent)
@@ -119,7 +130,11 @@ export const useCloud = create<CloudState>((set, get) => ({
         set({ busy: false, error: 'Aucune sauvegarde cloud pour ce compte.' });
         return null;
       }
-      const result = await applyBackupData(validateBackup(data.data));
+      // Les écritures de la restauration ne doivent pas relancer une sauvegarde
+      const result = await withoutDirtyTracking(() =>
+        applyBackupData(validateBackup(data.data)),
+      );
+      markClean();
       set({
         busy: false,
         lastBackupAt: data.updated_at,
@@ -134,6 +149,39 @@ export const useCloud = create<CloudState>((set, get) => ({
 
   clearMessages: () => set({ error: null, info: null }),
 }));
+
+/**
+ * Sauvegarde automatique : débounce après la dernière écriture, et envoi
+ * immédiat quand l'app disparaît — c'est le moment où l'on risque le plus de
+ * ne jamais revenir (onglet fermé, PWA balayée, iOS qui purge la webview).
+ */
+let autoInstalled = false;
+
+function installAutoBackup(): void {
+  if (autoInstalled) return;
+  autoInstalled = true;
+  installDirtyTracking();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    if (!isDirty()) return;
+    const { email } = useCloud.getState();
+    if (!email) return;
+    void useCloud.getState().backupNow(true);
+  };
+
+  onDirty(() => {
+    clearTimeout(timer);
+    timer = setTimeout(flush, AUTO_BACKUP_DEBOUNCE_MS);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flush();
+  });
+  window.addEventListener('pagehide', flush);
+}
 
 /** Session ouverte : récupère l'état du cloud, et pousse une 1re sauvegarde si le compte est vide. */
 async function afterSignIn(

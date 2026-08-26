@@ -1,29 +1,30 @@
 import { db, SCHEMA_VERSION } from './db';
 import { rebuildAllPRs } from './prs';
 
-const TABLES = [
-  'exercises',
-  'templates',
-  'workouts',
-  'setLogs',
-  'prs',
-  'meta',
-  'badges',
-  'challenges',
-  'bosses',
-] as const;
+/**
+ * Sauvegarde complète — export fichier ET sauvegarde cloud.
+ *
+ * Les tables ne sont pas listées ici mais lues dans le schéma Dexie : une
+ * table ajoutée à la base entre automatiquement dans la sauvegarde. La liste
+ * écrite à la main qui précédait était un piège — elle avait déjà failli
+ * laisser les blocs d'entraînement hors des sauvegardes, sans la moindre
+ * erreur visible.
+ */
+function tableNames(): string[] {
+  return db.tables.map((t) => t.name);
+}
 
 export interface BackupFile {
   app: 'suivi-muscu';
   schemaVersion: number;
   exportedAt: string;
-  data: Record<(typeof TABLES)[number], unknown[]>;
+  data: Record<string, unknown[]>;
 }
 
-/** Dump complet de la base — utilisé par l'export fichier ET la sauvegarde cloud. */
+/** Dump complet de la base. */
 export async function buildBackupData(): Promise<BackupFile> {
-  const data = {} as BackupFile['data'];
-  for (const t of TABLES) data[t] = await db.table(t).toArray();
+  const data: Record<string, unknown[]> = {};
+  for (const name of tableNames()) data[name] = await db.table(name).toArray();
   return {
     app: 'suivi-muscu',
     schemaVersion: SCHEMA_VERSION,
@@ -48,15 +49,22 @@ export function validateBackup(parsed: unknown): BackupFile {
   return backup;
 }
 
-/** Remplace intégralement les données locales par celles du backup. */
+/**
+ * Remplace intégralement les données locales par celles du backup.
+ *
+ * Une table absente du backup est vidée, pas laissée en l'état : restaurer,
+ * c'est revenir exactement à l'instantané, y compris pour ce qui n'existait
+ * pas encore quand il a été pris.
+ */
 export async function applyBackupData(
   backup: BackupFile,
 ): Promise<{ workouts: number; sets: number }> {
-  await db.transaction('rw', TABLES.slice(), async () => {
-    for (const t of TABLES) {
-      await db.table(t).clear();
-      const rows = backup.data[t];
-      if (Array.isArray(rows) && rows.length > 0) await db.table(t).bulkPut(rows);
+  const names = tableNames();
+  await db.transaction('rw', names, async () => {
+    for (const name of names) {
+      await db.table(name).clear();
+      const rows = backup.data[name];
+      if (Array.isArray(rows) && rows.length > 0) await db.table(name).bulkPut(rows);
     }
   });
   await rebuildAllPRs();
