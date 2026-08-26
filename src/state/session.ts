@@ -3,10 +3,19 @@ import { nanoid } from 'nanoid';
 import { db } from '../db/db';
 import { registerSetForPRs, rebuildAllPRs } from '../db/prs';
 import { PR_LABEL } from '../db/prs';
-import type { ActiveSessionMeta, PRKind, SetLog, TargetSet } from '../db/types';
+import type {
+  ActiveSessionMeta,
+  PRKind,
+  SetLog,
+  TargetSet,
+  TemplateItem,
+  WorkoutTemplate,
+} from '../db/types';
+import { isDurationSet } from '../db/types';
+import { blockViews, defaultOptionIndexes, itemOptions, optionAt } from '../lib/block';
 import { todayISO } from '../lib/dates';
 import { haptics } from '../lib/haptics';
-import { nextInSuperset } from '../lib/superset';
+import { nextInSuperset, supersetRange } from '../lib/superset';
 import { sounds } from '../lib/sound';
 import { useToasts } from './toasts';
 import { evaluateBadges } from '../gamification/badges';
@@ -22,6 +31,7 @@ import {
 } from '../gamification/xp';
 import { coachAdvice, type CoachAdvice } from '../lib/coach';
 import { useCloud } from './cloud';
+import { pendingLevelUp, type LevelUp } from '../db/blocks';
 
 export interface SessionSet {
   target: TargetSet;
@@ -49,11 +59,26 @@ export interface SessionEntry {
   last?: LastPerf;
   coach?: CoachAdvice | null;
   weightIncrementKg: number;
+  /** Index de l'option « OU » retenue, et les exercices proposés par l'item */
+  optionIndex: number;
+  optionExerciseIds: string[];
 }
 
 export interface RestState {
   endsAt: number;
   totalSec: number;
+}
+
+/** Exercice (ou bloc de superset) qui vient d'être bouclé — déclenche l'animation. */
+export interface ExerciseDone {
+  /** Dernière entrée validée du bloc */
+  index: number;
+  /** Entrée à présenter ensuite, `null` si la séance est finie */
+  nextIndex: number | null;
+  name: string;
+  isWarmup: boolean;
+  /** Horodatage : deux fins d'affilée doivent relancer l'animation */
+  at: number;
 }
 
 export interface SessionSummary {
@@ -81,6 +106,8 @@ interface SessionStore {
   rest: RestState | null;
   prCount: number;
   summary: SessionSummary | null;
+  exerciseDone: ExerciseDone | null;
+  levelUp: LevelUp | null;
 
   start: (templateId: string) => Promise<void>;
   restore: () => Promise<void>;
@@ -89,6 +116,7 @@ interface SessionStore {
   completeSet: (ei: number, si: number) => Promise<void>;
   uncompleteSet: (ei: number, si: number) => Promise<void>;
   addSet: (ei: number) => void;
+  switchOption: (ei: number, optionIndex: number) => Promise<void>;
   addWarmupSets: (ei: number, sets: { weightKg: number; reps: number }[]) => void;
   setEntryNote: (ei: number, note: string) => void;
   adjustRest: (deltaSec: number) => void;
@@ -97,6 +125,8 @@ interface SessionStore {
   finish: () => Promise<void>;
   abandon: () => Promise<void>;
   clearSummary: () => void;
+  clearExerciseDone: () => void;
+  clearLevelUp: () => void;
 }
 
 /** Dernière perf sur un exercice : les séries de la dernière séance qui le contient. */
@@ -131,42 +161,67 @@ function prefillSet(target: TargetSet, last: LastPerf | undefined, i: number): S
   };
 }
 
-async function buildEntries(
-  templateId: string,
+/** Construit l'entrée de séance d'un item, pour l'option « OU » retenue. */
+async function buildEntry(
+  item: TemplateItem,
+  optionIndex: number,
   workoutId: string,
-): Promise<SessionEntry[] | null> {
-  const template = await db.templates.get(templateId);
-  if (!template) return null;
-  const exercises = new Map(
-    (await db.exercises.bulkGet(template.items.map((i) => i.exerciseId))).map((e) => [e?.id, e]),
-  );
+): Promise<SessionEntry> {
+  const option = optionAt(item, optionIndex);
+  const ex = await db.exercises.get(option.exerciseId);
+  const last = await fetchLastPerf(option.exerciseId, workoutId);
+  const increment = ex?.weightIncrementKg ?? 2.5;
+  const coach = coachAdvice(option.sets, last, increment);
+  const sets = option.sets.map((t, i) => {
+    const s = prefillSet(t, last, i);
+    // Le coach pré-remplit la progression suggérée (jamais sur holds/échauffement)
+    if (coach?.kind === 'increase' && !isDurationSet(t) && t.type !== 'échauffement' && s.weightKg > 0) {
+      s.weightKg = Math.round((s.weightKg + coach.deltaKg) * 100) / 100;
+    }
+    return s;
+  });
+  return {
+    exerciseId: option.exerciseId,
+    restSec: item.restSecOverride ?? ex?.defaultRestSec ?? 90,
+    ...(item.supersetKey ? { supersetKey: item.supersetKey } : {}),
+    templateNote: option.note ?? ex?.note,
+    note: '',
+    sets,
+    last,
+    coach,
+    weightIncrementKg: increment,
+    optionIndex,
+    optionExerciseIds: itemOptions(item).map((o) => o.exerciseId),
+  };
+}
+
+async function buildEntries(
+  template: WorkoutTemplate,
+  workoutId: string,
+  choices: number[],
+): Promise<SessionEntry[]> {
   return Promise.all(
-    template.items.map(async (item) => {
-      const ex = exercises.get(item.exerciseId);
-      const last = await fetchLastPerf(item.exerciseId, workoutId);
-      const increment = ex?.weightIncrementKg ?? 2.5;
-      const coach = coachAdvice(item.sets, last, increment);
-      const sets = item.sets.map((t, i) => {
-        const s = prefillSet(t, last, i);
-        // Le coach pré-remplit la progression suggérée (jamais sur holds/échauffement)
-        if (coach?.kind === 'increase' && t.type !== 'hold' && t.type !== 'échauffement' && s.weightKg > 0) {
-          s.weightKg = Math.round((s.weightKg + coach.deltaKg) * 100) / 100;
-        }
-        return s;
-      });
-      return {
-        exerciseId: item.exerciseId,
-        restSec: item.restSecOverride ?? ex?.defaultRestSec ?? 90,
-        ...(item.supersetKey ? { supersetKey: item.supersetKey } : {}),
-        templateNote: item.note ?? ex?.note,
-        note: '',
-        sets,
-        last,
-        coach,
-        weightIncrementKg: increment,
-      };
-    }),
+    template.items.map((item, i) => buildEntry(item, choices[i] ?? 0, workoutId)),
   );
+}
+
+/**
+ * Nom donné à la séance enregistrée. Les séances d'un bloc portent la même
+ * étiquette d'une semaine à l'autre : on y ajoute la semaine, sans quoi
+ * l'historique aligne quatre « Push » indiscernables.
+ */
+async function sessionName(template: WorkoutTemplate): Promise<string> {
+  if (!template.blockId || template.week == null) return template.name;
+  const block = await db.blocks.get(template.blockId);
+  return block ? `${template.name} · S${template.week}` : template.name;
+}
+
+/** Options « OU » par défaut : elles dépendent de la semaine du bloc. */
+async function defaultChoices(template: WorkoutTemplate): Promise<number[]> {
+  if (!template.blockId) return template.items.map(() => 0);
+  const block = await db.blocks.get(template.blockId);
+  if (!block) return template.items.map(() => 0);
+  return defaultOptionIndexes(template, blockViews([block]).get(block.id));
 }
 
 /** Secondes de transition entre deux exercices d'un même superset. */
@@ -177,7 +232,9 @@ async function tonnageOfWorkout(workoutId: string): Promise<number> {
   return logs.reduce((sum, l) => sum + (l.reps ? l.weightKg * l.reps : 0), 0);
 }
 
-function persistActiveMeta(s: Pick<SessionStore, 'workoutId' | 'templateId' | 'index' | 'rest'>) {
+function persistActiveMeta(
+  s: Pick<SessionStore, 'workoutId' | 'templateId' | 'index' | 'rest' | 'entries'>,
+) {
   const meta: ActiveSessionMeta = {
     id: 'activeSession',
     workoutId: s.workoutId,
@@ -185,6 +242,7 @@ function persistActiveMeta(s: Pick<SessionStore, 'workoutId' | 'templateId' | 'i
     currentExerciseIndex: s.index,
     restEndsAt: s.rest?.endsAt,
     restTotalSec: s.rest?.totalSec,
+    variantChoices: s.entries.map((e) => e.optionIndex),
   };
   void db.meta.put(meta);
 }
@@ -200,17 +258,20 @@ export const useSession = create<SessionStore>((set, get) => ({
   rest: null,
   prCount: 0,
   summary: null,
+  exerciseDone: null,
+  levelUp: null,
 
   async start(templateId) {
     const template = await db.templates.get(templateId);
     if (!template) return;
     const workoutId = nanoid();
-    const entries = await buildEntries(templateId, workoutId);
-    if (!entries) return;
+    const choices = await defaultChoices(template);
+    const entries = await buildEntries(template, workoutId, choices);
+    const name = await sessionName(template);
     await db.workouts.put({
       id: workoutId,
       templateId,
-      name: template.name,
+      name,
       date: todayISO(),
       startedAt: Date.now(),
     });
@@ -218,14 +279,15 @@ export const useSession = create<SessionStore>((set, get) => ({
       active: true,
       workoutId,
       templateId,
-      name: template.name,
+      name,
       startedAt: Date.now(),
       entries,
       index: 0,
       rest: null,
       prCount: 0,
-
       summary: null,
+      exerciseDone: null,
+      levelUp: null,
     });
     persistActiveMeta(get());
   },
@@ -238,11 +300,13 @@ export const useSession = create<SessionStore>((set, get) => ({
       await db.meta.delete('activeSession');
       return;
     }
-    const entries = await buildEntries(meta.templateId, workout.id);
-    if (!entries) {
+    const template = await db.templates.get(meta.templateId);
+    if (!template) {
       await db.meta.delete('activeSession');
       return;
     }
+    const choices = meta.variantChoices ?? (await defaultChoices(template));
+    const entries = await buildEntries(template, workout.id, choices);
     // Ré-applique les séries déjà validées de cette séance
     const logs = await db.setLogs.where('workoutId').equals(workout.id).sortBy('completedAt');
     for (const log of logs) {
@@ -279,8 +343,9 @@ export const useSession = create<SessionStore>((set, get) => ({
       index: Math.min(meta.currentExerciseIndex, entries.length - 1),
       rest,
       prCount: 0,
-
       summary: null,
+      exerciseDone: null,
+      levelUp: null,
     });
   },
 
@@ -304,7 +369,7 @@ export const useSession = create<SessionStore>((set, get) => ({
     const entry = entries[ei];
     const s = entry?.sets[si];
     if (!s || s.done) return;
-    const isHold = s.target.type === 'hold';
+    const isHold = isDurationSet(s.target);
     const log: SetLog = {
       id: nanoid(),
       workoutId,
@@ -319,6 +384,7 @@ export const useSession = create<SessionStore>((set, get) => ({
     const prs = await registerSetForPRs(log, todayISO());
     get().patchSet(ei, si, { done: true, logId: log.id, prs });
     haptics.setDone();
+    sounds.setDone();
     if (prs.length > 0) {
       haptics.pr();
       sounds.pr();
@@ -354,7 +420,36 @@ export const useSession = create<SessionStore>((set, get) => ({
     // Superset : on enchaîne sur l'exercice suivant du bloc après une courte
     // transition, le repos complet n'arrivant qu'une fois le tour bouclé.
     const fresh = get().entries;
-    const next = nextInSuperset(fresh, ei, (i) => fresh[i].sets.some((x) => !x.done));
+    const pending = (i: number) => fresh[i].sets.some((x) => !x.done);
+    const next = nextInSuperset(fresh, ei, pending);
+
+    // Bloc bouclé (superset entier ou exercice seul) : on le fête.
+    if (!next) {
+      const [start, end] = supersetRange(fresh, ei);
+      const blockDone = Array.from({ length: end - start + 1 }, (_, k) => start + k).every(
+        (i) => !pending(i),
+      );
+      if (blockDone) {
+        let nextIndex: number | null = null;
+        for (let i = end + 1; i < fresh.length && nextIndex === null; i++)
+          if (pending(i)) nextIndex = i;
+        if (nextIndex === null)
+          for (let i = 0; i < start && nextIndex === null; i++) if (pending(i)) nextIndex = i;
+        const isWarmup = fresh[ei].sets.every((x) => x.target.type === 'échauffement');
+        set({
+          exerciseDone: {
+            index: ei,
+            nextIndex,
+            name: isWarmup ? 'Échauffement' : '',
+            isWarmup,
+            at: Date.now(),
+          },
+        });
+        haptics.exerciseDone();
+        sounds.exerciseDone();
+      }
+    }
+
     if (next) {
       const totalSec = next.newRound ? fresh[ei].restSec : SUPERSET_TRANSITION_SEC;
       set({ index: next.index, rest: { endsAt: Date.now() + totalSec * 1000, totalSec } });
@@ -416,6 +511,25 @@ export const useSession = create<SessionStore>((set, get) => ({
     });
   },
 
+  /**
+   * Bascule sur une autre option « OU » de l'exercice. Refusé dès qu'une série
+   * est validée : les séries enregistrées pointent l'exercice, les remplacer
+   * reviendrait à réécrire l'historique de la séance en cours.
+   */
+  async switchOption(ei, optionIndex) {
+    const { entries, templateId, workoutId } = get();
+    const entry = entries[ei];
+    if (!entry || !templateId || optionIndex === entry.optionIndex) return;
+    if (entry.sets.some((s) => s.done)) return;
+    const template = await db.templates.get(templateId);
+    const item = template?.items[ei];
+    if (!item) return;
+    const rebuilt = await buildEntry(item, optionIndex, workoutId);
+    set({ entries: get().entries.map((e, i) => (i === ei ? { ...rebuilt, note: e.note } : e)) });
+    haptics.light();
+    persistActiveMeta(get());
+  },
+
   setEntryNote(ei, note) {
     const entry = get().entries[ei];
     if (!entry) return;
@@ -450,7 +564,10 @@ export const useSession = create<SessionStore>((set, get) => ({
     const { workoutId, templateId, name, startedAt, entries, prCount } = get();
     const tonnageKg = entries
       .flatMap((e) => e.sets)
-      .reduce((sum, s) => (s.done && s.target.type !== 'hold' ? sum + s.weightKg * s.reps : sum), 0);
+      .reduce(
+        (sum, s) => (s.done && !isDurationSet(s.target) ? sum + s.weightKg * s.reps : sum),
+        0,
+      );
     const setsDone = entries.flatMap((e) => e.sets).filter((s) => s.done).length;
     let prevTonnageKg: number | undefined;
     if (templateId) {
@@ -530,6 +647,9 @@ export const useSession = create<SessionStore>((set, get) => ({
       },
     });
 
+    // Le palier ne monte que si toutes ses séances sont faites — l'app le propose
+    set({ levelUp: await pendingLevelUp(templateId) });
+
     // Sauvegarde cloud silencieuse si connecté
     void useCloud.getState().backupNow(true);
   },
@@ -544,4 +664,6 @@ export const useSession = create<SessionStore>((set, get) => ({
   },
 
   clearSummary: () => set({ summary: null }),
+  clearExerciseDone: () => set({ exerciseDone: null }),
+  clearLevelUp: () => set({ levelUp: null }),
 }));

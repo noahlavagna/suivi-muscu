@@ -6,6 +6,7 @@ import {
   FORGE_PRESET_META,
   PROGRAM_PRESETS,
 } from '../db/programs';
+import { applyNoahProgram, NOAH_PRESET_META } from '../db/progNoah';
 import { Pressable } from '../components/ui/Pressable';
 import { Flame } from '../components/gami/Flame';
 import { IconChevronRight } from '../components/ui/Icons';
@@ -28,6 +29,13 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   };
 
   const cards = [
+    {
+      key: NOAH_PRESET_META.id,
+      name: NOAH_PRESET_META.name,
+      daysLabel: NOAH_PRESET_META.daysLabel,
+      desc: NOAH_PRESET_META.desc,
+      apply: applyNoahProgram,
+    },
     ...PROGRAM_PRESETS.map((p) => ({
       key: p.id,
       name: p.name,

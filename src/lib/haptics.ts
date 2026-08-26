@@ -15,7 +15,10 @@ function vibrate(pattern: number | number[]) {
 
 export const haptics = {
   light: () => vibrate(10),
-  setDone: () => vibrate(20),
-  restEnd: () => vibrate([80, 60, 80]),
+  setDone: () => vibrate(22),
+  exerciseDone: () => vibrate([26, 50, 26, 50, 70]),
+  tick: () => vibrate(8),
+  restEnd: () => vibrate([120, 70, 120, 70, 180]),
   pr: () => vibrate([30, 40, 30, 40, 60]),
+  levelUp: () => vibrate([40, 50, 40, 50, 40, 60, 200]),
 };

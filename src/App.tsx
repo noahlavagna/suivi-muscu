@@ -21,6 +21,7 @@ import { SessionScreen } from './screens/session/SessionScreen';
 import { SummarySheet } from './screens/session/SummarySheet';
 import { ToastHub } from './components/ToastHub';
 import { WrappedStory } from './components/gami/WrappedStory';
+import { LevelUpCeremony } from './components/gami/LevelUpCeremony';
 import { ensureWeeklyChallenge } from './gamification/challenges';
 import { ensureMonthlyBoss } from './gamification/boss';
 import { evaluateBadges } from './gamification/badges';
@@ -108,6 +109,9 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [wrapped, setWrapped] = useState<WrappedData | null>(null);
   const sessionActive = useSession((s) => s.active);
+  const summary = useSession((s) => s.summary);
+  const levelUp = useSession((s) => s.levelUp);
+  const clearLevelUp = useSession((s) => s.clearLevelUp);
   const sheetDepth = useSheetDepth((s) => s.depth);
   const reduced = useReducedMotion();
 
@@ -208,6 +212,12 @@ export default function App() {
       </motion.div>
       <ToastHub />
       <SummarySheet />
+      {/* La montée de palier attend que le récap de séance soit refermé */}
+      <AnimatePresence>
+        {levelUp && !summary && (
+          <LevelUpCeremony key="levelup" levelUp={levelUp} onClose={clearLevelUp} />
+        )}
+      </AnimatePresence>
       {wrapped && <WrappedStory data={wrapped} onClose={closeWrapped} />}
     </>
   );

@@ -16,42 +16,106 @@ import { EquivalentCard } from '../components/gami/EquivalentCard';
 import { BadgesStrip } from '../components/gami/BadgesStrip';
 import { BossCard } from '../components/gami/BossCard';
 import { fmtNumber, kgToUnit } from '../lib/format';
-import { fmtDateLong, todayISO, WEEKDAY_LABELS } from '../lib/dates';
+import { addDays, fmtDateLong, todayISO, WEEKDAY_LABELS } from '../lib/dates';
 import { springList, staggerDelay } from '../lib/springs';
-import type { Exercise, WorkoutTemplate } from '../db/types';
+import {
+  blockViews,
+  defaultOptionIndexes,
+  inCurrentWeek,
+  isScheduled,
+  optionAt,
+  type BlockView,
+} from '../lib/block';
+import { isDurationSet, isWarmupSets } from '../db/types';
+import { weekProgress, type WeekProgress } from '../db/blocks';
+import type { Exercise, ItemVariant, TargetSet, WorkoutTemplate } from '../db/types';
 
 interface TodayData {
   template?: WorkoutTemplate;
-  allTemplates: WorkoutTemplate[];
+  /** Options « OU » résolues pour la semaine en cours */
+  items: ItemVariant[];
+  view?: BlockView;
+  /** Rappel du bloc en cours, affiché aussi les jours de repos */
+  blockLine?: string;
+  progress?: WeekProgress;
+  launchable: WorkoutTemplate[];
   exercises: Map<string, Exercise>;
   lastPerfs: Map<string, LastPerf | undefined>;
   doneToday: boolean;
   next?: { template: WorkoutTemplate; inDays: number };
 }
 
+/** Objectif d'une série, en une poignée de caractères. */
+function targetShort(set?: TargetSet): string {
+  if (!set) return '—';
+  if (set.cluster) return `${set.cluster.count}×${set.cluster.reps}`;
+  if (isDurationSet(set)) {
+    const sec = set.durationSec ?? 20;
+    return set.durationSecMax && set.durationSecMax !== sec
+      ? `${sec}–${set.durationSecMax} s`
+      : `${sec} s`;
+  }
+  if (set.repsMin == null) return '—';
+  return set.repsMax && set.repsMax !== set.repsMin
+    ? `${set.repsMin}–${set.repsMax}`
+    : `${set.repsMin}`;
+}
+
 async function loadToday(): Promise<TodayData> {
-  const templates = await db.templates.orderBy('order').toArray();
-  const weekday = new Date().getDay();
-  const template = templates.find((t) => t.weekdays.includes(weekday));
+  const [templates, blocks] = await Promise.all([
+    db.templates.orderBy('order').toArray(),
+    db.blocks.toArray(),
+  ]);
+  const now = new Date();
+  const views = blockViews(blocks);
+  const weekday = now.getDay();
+  const template = templates
+    .filter((t) => isScheduled(t, views))
+    .find((t) => t.weekdays.includes(weekday));
   const doneToday =
     (await db.workouts.where('date').equals(todayISO()).toArray()).filter(
       (w) => w.finishedAt && (!template || w.templateId === template.id),
     ).length > 0;
+
+  const scheduled = templates.filter((t) => isScheduled(t, views));
   let next: TodayData['next'];
   for (let d = 1; d <= 7 && !next; d++) {
-    const wd = (weekday + d) % 7;
-    const t = templates.find((tt) => tt.weekdays.includes(wd));
+    const date = addDays(now, d);
+    const t = scheduled.find((tt) => tt.weekdays.includes(date.getDay()));
     if (t) next = { template: t, inDays: d };
   }
+
+  const view = template?.blockId ? views.get(template.blockId) : undefined;
+  const main = views.values().next().value as BlockView | undefined;
+  const progress = main ? await weekProgress(main.block) : undefined;
+  const blockLine = main
+    ? `${main.block.name} · semaine ${main.week}/${main.block.weeks.length}${
+        main.config ? ` · ${main.config.rir}` : ''
+      }`
+    : undefined;
+  const items = template
+    ? defaultOptionIndexes(template, view).map((choice, i) => optionAt(template.items[i], choice))
+    : [];
   const exercises = new Map<string, Exercise>();
   const lastPerfs = new Map<string, LastPerf | undefined>();
-  if (template) {
-    const list = await db.exercises.bulkGet(template.items.map((i) => i.exerciseId));
-    for (const e of list) if (e) exercises.set(e.id, e);
-    for (const item of template.items)
+  const list = await db.exercises.bulkGet(items.map((i) => i.exerciseId));
+  for (const e of list) if (e) exercises.set(e.id, e);
+  for (const item of items)
+    if (!isWarmupSets(item.sets))
       lastPerfs.set(item.exerciseId, await fetchLastPerf(item.exerciseId));
-  }
-  return { template, allTemplates: templates, exercises, lastPerfs, doneToday, next };
+
+  return {
+    template,
+    items,
+    view,
+    blockLine,
+    progress,
+    launchable: templates.filter((t) => inCurrentWeek(t, views)),
+    exercises,
+    lastPerfs,
+    doneToday,
+    next,
+  };
 }
 
 export function TodayScreen() {
@@ -63,7 +127,10 @@ export function TodayScreen() {
   const gami = useGami();
 
   if (!data) return <Screen>{null}</Screen>;
-  const { template, allTemplates, exercises, lastPerfs, doneToday, next } = data;
+  const { template, items, view, blockLine, progress, launchable, exercises, lastPerfs, doneToday, next } =
+    data;
+  const warmups = items.filter((i) => isWarmupSets(i.sets));
+  const working = items.filter((i) => !isWarmupSets(i.sets));
   const isThursday = new Date().getDay() === 4;
 
   return (
@@ -102,6 +169,12 @@ export function TodayScreen() {
                 }`
               : 'Aucune séance programmée'}
           </p>
+          {blockLine && (
+            <p className="tnum mt-2 text-[13px] text-accent">
+              {blockLine}
+              {progress && progress.total > 0 && ` · ${progress.done}/${progress.total} séances`}
+            </p>
+          )}
         </Card>
       )}
 
@@ -124,14 +197,41 @@ export function TodayScreen() {
           </p>
           <Card className="mb-4 !p-0">
             <div className="border-b border-sep px-4 py-3.5">
-              <h2 className="text-[20px] font-bold tracking-[-0.01em]">{template.name}</h2>
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="text-[20px] font-bold tracking-[-0.01em]">{template.name}</h2>
+                {view && (
+                  <span className="tnum shrink-0 text-[12px] font-semibold text-accent">
+                    Semaine {view.week}/{view.block.weeks.length}
+                  </span>
+                )}
+              </div>
+              {template.note && (
+                <p className="tnum mt-0.5 text-[13px] font-medium text-accent">{template.note}</p>
+              )}
+              {progress && progress.total > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex flex-1 gap-1">
+                    {Array.from({ length: progress.total }, (_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full ${
+                          i < progress.done ? 'bg-accent' : 'bg-raised-2'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="tnum text-[12px] text-ink-3">
+                    {progress.done}/{progress.total} du palier
+                  </span>
+                </div>
+              )}
               <p className="tnum mt-0.5 text-[13px] text-ink-2">
-                {template.items.length} exercices ·{' '}
-                {template.items.reduce((n, i) => n + i.sets.length, 0)} séries
+                {working.length} exercices · {working.reduce((n, i) => n + i.sets.length, 0)} séries
+                {warmups.length > 0 && ` · échauffement ${warmups.length} mouvements`}
               </p>
             </div>
             <ul>
-              {template.items.map((item, i) => {
+              {working.map((item, i) => {
                 const ex = exercises.get(item.exerciseId);
                 const last = lastPerfs.get(item.exerciseId);
                 const lastLine = last?.sets
@@ -157,10 +257,7 @@ export function TodayScreen() {
                       )}
                     </div>
                     <span className="tnum shrink-0 text-[13px] text-ink-2">
-                      {item.sets.length} × {item.sets[0]?.repsMin ?? '—'}
-                      {item.sets[0]?.repsMax && item.sets[0].repsMax !== item.sets[0].repsMin
-                        ? `–${item.sets[0].repsMax}`
-                        : ''}
+                      {item.sets.length} × {targetShort(item.sets[0])}
                     </span>
                   </motion.li>
                 );
@@ -195,7 +292,7 @@ export function TodayScreen() {
       <Sheet open={otherOpen} onClose={() => setOtherOpen(false)} ariaLabel="Choisir une séance">
         <div className="pb-3 pt-1">
           <h2 className="mb-3 text-[20px] font-bold">Lancer une séance</h2>
-          {allTemplates.map((t) => (
+          {launchable.map((t) => (
             <Pressable
               key={t.id}
               className="flex w-full items-baseline justify-between gap-3 border-b border-sep py-3.5 text-left last:border-b-0"
@@ -204,9 +301,14 @@ export function TodayScreen() {
                 void start(t.id);
               }}
             >
-              <span className="min-w-0 truncate text-[16px] font-medium">{t.name}</span>
+              <span className="min-w-0 truncate text-[16px] font-medium">
+                {t.name}
+                {t.optionalDay && (
+                  <span className="ml-1.5 text-[12px] font-normal text-ink-3">optionnel</span>
+                )}
+              </span>
               <span className="tnum shrink-0 text-[13px] text-ink-3">
-                {t.items.length} exercices
+                {t.items.filter((i) => !isWarmupSets(i.sets)).length} exercices
               </span>
             </Pressable>
           ))}

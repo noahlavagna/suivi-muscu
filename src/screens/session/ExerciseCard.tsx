@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
+import { isDurationSet, isWarmupSets } from '../../db/types';
 import { useSession, type SessionEntry } from '../../state/session';
 import { useSettings } from '../../state/settings';
 import { fmtNumber, fmtTimer, kgToUnit } from '../../lib/format';
@@ -26,12 +27,25 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
     () => db.prs.get(`${entry.exerciseId}:charge`),
     [entry.exerciseId],
   );
+  const switchOption = useSession((s) => s.switchOption);
+  const options = useLiveQuery(
+    async () =>
+      entry.optionExerciseIds.length > 1
+        ? await db.exercises.bulkGet(entry.optionExerciseIds)
+        : [],
+    [entry.optionExerciseIds.join('|')],
+  );
 
   if (!exercise) return null;
 
+  // Le « OU » du programme : verrouillé dès qu'une série est validée
+  const optionsLocked = entry.sets.some((s) => s.done);
+  // Échauffement : ni disques ni séries d'approche à calculer, et pas de superset
+  const warmup = isWarmupSets(entry.sets.map((s) => s.target));
+
   // La couronne : record de charge en jeu quand une série à venir s'en approche (< 5 %)
   const pendingWeights = entry.sets
-    .filter((s) => !s.done && s.target.type !== 'hold' && s.weightKg > 0)
+    .filter((s) => !s.done && !isDurationSet(s.target) && s.weightKg > 0)
     .map((s) => s.weightKg);
   const pendingMax = pendingWeights.length > 0 ? Math.max(...pendingWeights) : 0;
   const crown =
@@ -63,7 +77,9 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         </span>
         {entry.supersetKey && (
           <span className="rounded-md bg-accent-dim px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
-            Superset
+            {/* Les postures s'enchaînent par le même mécanisme que les supersets,
+                mais un échauffement n'en est pas un — le mot serait faux. */}
+            {warmup ? 'Enchaîné' : 'Superset'}
           </span>
         )}
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
@@ -77,6 +93,36 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
       <h2 className="text-[22px] font-bold leading-7 tracking-[-0.01em]">{exercise.name}</h2>
       {entry.templateNote && (
         <p className="mt-0.5 text-[13px] font-medium text-accent">{entry.templateNote}</p>
+      )}
+
+      {options && options.length > 1 && (
+        <div className="mt-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+              ou
+            </span>
+            {options.map((opt, oi) => {
+              const on = oi === entry.optionIndex;
+              return (
+                <Pressable
+                  key={opt?.id ?? oi}
+                  className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+                    on ? 'bg-accent text-canvas' : 'bg-raised text-ink-2'
+                  } ${optionsLocked && !on ? 'opacity-40' : ''}`}
+                  disabled={optionsLocked}
+                  onClick={() => void switchOption(entryIndex, oi)}
+                >
+                  {opt?.name ?? '—'}
+                </Pressable>
+              );
+            })}
+          </div>
+          {optionsLocked && (
+            <p className="mt-1 text-[11px] text-ink-3">
+              Choix figé : une série est déjà validée.
+            </p>
+          )}
+        </div>
       )}
       {lastLine ? (
         <p className="tnum mt-1.5 text-[13px] text-ink-2">
@@ -122,7 +168,7 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         >
           <IconPlus size={16} /> Ajouter une série
         </Pressable>
-        {!exercise.isTimeBased && (
+        {!exercise.isTimeBased && !warmup && (
           <Pressable
             className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-raised text-ink-2"
             onClick={() => setToolsOpen(true)}

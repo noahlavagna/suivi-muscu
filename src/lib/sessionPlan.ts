@@ -1,4 +1,5 @@
 import type { Exercise, MuscleGroup, TargetSet, TemplateItem } from '../db/types';
+import { isDurationSet } from '../db/types';
 
 /**
  * Estimations affichées dans l'éditeur de séance : durée et répartition du
@@ -13,7 +14,7 @@ function workSeconds(set: TargetSet): number {
     const { reps, count, restSec } = set.cluster;
     return count * reps * 3 + (count - 1) * restSec;
   }
-  if (set.type === 'hold') return set.durationSec ?? 20;
+  if (isDurationSet(set)) return set.durationSec ?? 20;
   const reps = set.repsMax ?? set.repsMin ?? 10;
   // ~3 s par répétition, doublé en superlent
   return reps * (set.type === 'superlent' ? 6 : 3);

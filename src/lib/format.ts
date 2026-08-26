@@ -32,6 +32,19 @@ export function fmtTimer(totalSec: number): string {
   return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/**
+ * Décompte : `ceil`, pas `round`.
+ *
+ * Arrondir affiche « 0:15 » jusqu'à 14,5 s puis « 0:00 » alors qu'il reste une
+ * demi-seconde — le chiffre et l'anneau ne tombent alors pas ensemble. Avec
+ * `ceil`, « 0:01 » couvre toute la dernière seconde et zéro est atteint pile.
+ */
+export function fmtCountdown(totalSec: number): string {
+  const s = Math.max(0, Math.ceil(totalSec - 0.001));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /** 3725s → "1 h 02" · 310s → "5 min" */
 export function fmtDurationLong(totalSec: number): string {
   const m = Math.round(totalSec / 60);

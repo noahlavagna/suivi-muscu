@@ -122,7 +122,36 @@ export interface TargetSet {
   repsMin?: number;
   repsMax?: number;
   durationSec?: number;
+  /** Borne haute quand la consigne est un intervalle (« 45 à 60 sec ») */
+  durationSecMax?: number;
   cluster?: { reps: number; count: number; restSec: number };
+}
+
+/**
+ * Une série se saisit en durée dès qu'elle en porte une — gainage, mobilité,
+ * échauffement chronométré. Le type `hold` reste reconnu pour les bases
+ * antérieures, où la durée pouvait manquer.
+ */
+export const isDurationSet = (t: TargetSet): boolean =>
+  t.type === 'hold' || t.durationSec != null;
+
+/**
+ * Série sans consigne : on la valide quand la sensation est là. Les postures
+ * d'échauffement n'ont ni durée ni répétitions à tenir — les chiffrer
+ * inventerait une contrainte que le programme ne pose pas.
+ */
+export const isFreeSet = (t: TargetSet): boolean =>
+  t.type === 'échauffement' && t.repsMin == null && t.durationSec == null && !t.cluster;
+
+/** Un exercice d'échauffement : toutes ses séries sont de ce type. */
+export const isWarmupSets = (sets: TargetSet[]): boolean =>
+  sets.length > 0 && sets.every((s) => s.type === 'échauffement');
+
+/** Option « OU » d'un exercice : autre mouvement et/ou autre schéma de séries. */
+export interface ItemVariant {
+  exerciseId: string;
+  sets: TargetSet[];
+  note?: string;
 }
 
 export interface TemplateItem {
@@ -135,6 +164,17 @@ export interface TemplateItem {
    * repos, le repos ne s'appliquant qu'en fin de tour. Absent = exercice seul.
    */
   supersetKey?: string;
+  /**
+   * Options « OU » qui suivent la principale (`exerciseId` + `sets`). L'option
+   * retenue est choisie au lancement de la séance, puis modifiable tant
+   * qu'aucune série n'est validée.
+   */
+  variants?: ItemVariant[];
+  /**
+   * « 1 semaine sur 2 » : l'option suit la parité de la semaine de bloc, sauf
+   * si les séances facultatives du bloc sont activées (voir `optionalEnabled`).
+   */
+  alternateByWeek?: boolean;
 }
 
 export interface WorkoutTemplate {
@@ -143,6 +183,49 @@ export interface WorkoutTemplate {
   weekdays: number[]; // 0 = dimanche … 6 = samedi (convention JS Date)
   order: number;
   items: TemplateItem[];
+  /** Bloc (mésocycle) auquel la séance appartient — voir `BlockRow` */
+  blockId?: string;
+  /** Semaine du bloc, 1-indexée. Seule celle en cours est planifiée. */
+  week?: number;
+  /** Séance facultative : planifiée seulement si le bloc l'active */
+  optionalDay?: boolean;
+  /** Consigne de la séance (RIR, récup…) affichée en tête de séance */
+  note?: string;
+}
+
+/** Réglages d'intensité d'une semaine de bloc. */
+export interface BlockWeek {
+  week: number;
+  /** Ex. « RIR 3/4 » — affiché tel quel */
+  rir: string;
+  restSec: number;
+  /** Borne haute quand la récup est donnée en intervalle (« 3'00 à 3'30 ») */
+  restSecMax?: number;
+}
+
+/**
+ * Bloc d'entraînement : une même trame de séances déclinée sur plusieurs
+ * semaines d'intensité croissante.
+ *
+ * Le palier n'avance pas au calendrier mais à l'effort : il monte quand toutes
+ * les séances du palier ont été faites, sur confirmation. Une semaine où il
+ * manque une séance ne fait donc pas sauter un cran d'intensité.
+ */
+export interface BlockRow {
+  id: string;
+  name: string;
+  desc?: string;
+  /** Jour d'installation du bloc (YYYY-MM-DD), informatif */
+  startDate: string;
+  weeks: BlockWeek[];
+  /** Palier en cours, 1-indexé */
+  currentWeek: number;
+  /** Entrée dans le palier courant (ms) — sert à compter les séances faites depuis */
+  weekStartedAt: number;
+  /** Le dernier palier est un point d'arrivée : aucune montée n'est proposée après */
+  holdLastWeek: boolean;
+  /** Les séances `optionalDay` sont-elles planifiées ? */
+  optionalEnabled: boolean;
 }
 
 export interface Workout {
@@ -190,6 +273,8 @@ export interface ActiveSessionMeta {
   restEndsAt?: number;
   restTotalSec?: number;
   restExerciseId?: string;
+  /** Option « OU » retenue par exercice, dans l'ordre des items de la séance */
+  variantChoices?: number[];
 }
 
 export interface Settings {

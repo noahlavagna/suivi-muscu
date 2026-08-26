@@ -10,6 +10,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { IconChevronLeft, IconChevronRight } from '../../components/ui/Icons';
 import { ExerciseCard } from './ExerciseCard';
 import { RestBar } from './RestBar';
+import { ExerciseDoneOverlay } from './ExerciseDoneOverlay';
 
 export function SessionScreen() {
   const name = useSession((s) => s.name);
@@ -122,6 +123,7 @@ export function SessionScreen() {
         </Pressable>
       </div>
 
+      <ExerciseDoneOverlay />
       <RestBar />
 
       {/* Fin de séance */}

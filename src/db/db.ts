@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
   BadgeRow,
+  BlockRow,
   BossRow,
   ChallengeRow,
   Exercise,
@@ -12,7 +13,7 @@ import type {
 } from './types';
 import { syncCatalogue } from './seed';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const db = new Dexie('suivi-muscu') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>;
@@ -24,6 +25,7 @@ export const db = new Dexie('suivi-muscu') as Dexie & {
   badges: EntityTable<BadgeRow, 'id'>;
   challenges: EntityTable<ChallengeRow, 'id'>;
   bosses: EntityTable<BossRow, 'id'>;
+  blocks: EntityTable<BlockRow, 'id'>;
 };
 
 db.version(1).stores({
@@ -40,8 +42,12 @@ db.version(2).stores({
   challenges: 'id',
 });
 
-db.version(SCHEMA_VERSION).stores({
+db.version(3).stores({
   bosses: 'id',
+});
+
+db.version(SCHEMA_VERSION).stores({
+  blocks: 'id',
 });
 
 export const dbReady = syncCatalogue(db).then(async () => {
