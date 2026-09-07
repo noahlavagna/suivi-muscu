@@ -8,13 +8,16 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Pressable } from '../../components/ui/Pressable';
 import { AnimatedNumber } from '../../components/ui/AnimatedNumber';
 import {
+  IconFlower,
   IconMedal,
   IconScroll,
   IconShare,
   IconSkull,
+  IconSparkle,
   IconTrophy,
   IconZap,
 } from '../../components/ui/Icons';
+import { monthlyFlavor } from '../../gamification/boss';
 
 const TIER_STYLE: Record<RarityTier, { border: string; chipBg: string; chipText: string; glow: boolean }> = {
   fonte: {
@@ -56,6 +59,8 @@ export function SummarySheet() {
   const summary = useSession((s) => s.summary);
   const clear = useSession((s) => s.clearSummary);
   const unit = useSettings((s) => s.unit);
+  const oceane = useSettings((s) => s.profile === 'oceane');
+  const flavor = monthlyFlavor();
 
   const delta =
     summary?.prevTonnageKg && summary.prevTonnageKg > 0
@@ -119,10 +124,15 @@ export function SummarySheet() {
             </div>
           </div>
 
-          {/* Gains de forge */}
+          {/* Ce que la séance rapporte */}
           <div className="mt-3 flex items-center justify-between rounded-[14px] bg-raised-2 px-4 py-3">
             <span className="flex items-center gap-2 text-[14px] font-medium">
-              <IconZap size={17} className="text-accent" /> Métal forgé
+              {oceane ? (
+                <IconSparkle size={17} className="text-accent" />
+              ) : (
+                <IconZap size={17} className="text-accent" />
+              )}{' '}
+              {oceane ? 'Gagné aujourd’hui' : 'Métal forgé'}
             </span>
             <span className="tnum text-[17px] font-bold text-accent">
               +<AnimatedNumber value={summary.xpGained} /> XP
@@ -132,16 +142,22 @@ export function SummarySheet() {
           {summary.boss && summary.boss.damageKg > 0 && (
             <div className="mt-2 flex items-center justify-between rounded-[14px] bg-raised-2 px-4 py-3">
               <span className="flex items-center gap-2 text-[14px] font-medium">
-                <IconSkull size={17} className="text-accent" /> {summary.boss.name}
+                {oceane ? (
+                  <IconFlower size={17} className="text-accent" />
+                ) : (
+                  <IconSkull size={17} className="text-accent" />
+                )}{' '}
+                {summary.boss.name}
               </span>
               <span className="tnum text-[14px] font-semibold">
                 {summary.boss.slainNow ? (
-                  <span className="text-accent">Terrassé !</span>
+                  <span className="text-accent">{flavor.doneLabel} !</span>
                 ) : (
                   <>
-                    −{fmtTonnage(summary.boss.damageKg, unit)}
+                    {oceane ? '+' : '−'}
+                    {fmtTonnage(summary.boss.damageKg, unit)}
                     <span className="ml-1.5 text-ink-3">
-                      reste {fmtTonnage(summary.boss.hpLeft, unit)}
+                      {flavor.remainingLabel} {fmtTonnage(summary.boss.hpLeft, unit)}
                     </span>
                   </>
                 )}
@@ -153,7 +169,7 @@ export function SummarySheet() {
             <div className="mt-2 flex items-center gap-2 rounded-[14px] bg-accent-dim px-4 py-3">
               <IconScroll size={17} className="text-accent" />
               <span className="text-[14px] font-semibold text-accent">
-                Contrat de la semaine rempli
+                {oceane ? 'Défi de la semaine relevé' : 'Contrat de la semaine rempli'}
               </span>
             </div>
           )}

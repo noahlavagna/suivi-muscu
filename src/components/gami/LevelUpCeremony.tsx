@@ -7,7 +7,8 @@ import { sounds } from '../../lib/sound';
 import { haptics } from '../../lib/haptics';
 import { Pressable } from '../ui/Pressable';
 import { Sparks } from '../ui/Sparks';
-import { IconAnvil, IconChevronRight, IconTimer, IconZap } from '../ui/Icons';
+import { IconAnvil, IconChevronRight, IconFlower, IconTimer, IconZap } from '../ui/Icons';
+import { useSettings } from '../../state/settings';
 import { springSheet } from '../../lib/springs';
 
 /**
@@ -26,6 +27,11 @@ export function LevelUpCeremony({
 }) {
   const reduced = useReducedMotion();
   const [busy, setBusy] = useState(false);
+  // Chez Océane un palier est une semaine du cycle, et l'enclume n'a rien à y faire
+  const oceane = useSettings((s) => s.profile === 'oceane');
+  const step = oceane ? 'semaine' : 'palier';
+  const restUnchanged =
+    levelUp.fromRestSec === levelUp.toRestSec && levelUp.toRestSecMax === undefined;
 
   useEffect(() => {
     sounds.levelUp();
@@ -79,7 +85,7 @@ export function LevelUpCeremony({
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 14 }}
         >
-          <IconAnvil size={46} />
+          {oceane ? <IconFlower size={46} /> : <IconAnvil size={46} />}
         </motion.span>
       </div>
 
@@ -89,7 +95,7 @@ export function LevelUpCeremony({
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...springSheet, delay: 0.18 }}
       >
-        Prêt à passer au niveau supérieur ?
+        {oceane ? `Semaine ${levelUp.from} terminée !` : 'Prêt à passer au niveau supérieur ?'}
       </motion.h1>
       <motion.p
         className="mt-2.5 max-w-[320px] text-center text-[15px] leading-6 text-ink-2"
@@ -97,8 +103,9 @@ export function LevelUpCeremony({
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
       >
-        Palier {levelUp.from} bouclé — toutes ses séances sont faites. Le palier{' '}
-        {levelUp.to} monte l’intensité.
+        {oceane
+          ? `Tes deux séances sont faites. La semaine ${levelUp.to} du cycle t’attend — regarde ce qui change.`
+          : `Palier ${levelUp.from} bouclé — toutes ses séances sont faites. Le palier ${levelUp.to} monte l’intensité.`}
       </motion.p>
 
       {/* Ce qui change concrètement */}
@@ -109,22 +116,27 @@ export function LevelUpCeremony({
         transition={{ ...springSheet, delay: 0.38 }}
       >
         <Change
-          icon={<IconZap size={17} />}
-          label="Intensité"
+          icon={oceane ? <IconFlower size={17} /> : <IconZap size={17} />}
+          label={oceane ? 'Phase' : 'Intensité'}
           from={levelUp.fromRir}
           to={levelUp.toRir}
+          last={restUnchanged}
         />
-        <Change
-          icon={<IconTimer size={17} />}
-          label="Récup"
-          from={levelUp.fromRestSec != null ? restLabel(levelUp.fromRestSec) : undefined}
-          to={
-            levelUp.toRestSec != null
-              ? restLabel(levelUp.toRestSec, levelUp.toRestSecMax)
-              : undefined
-          }
-          last
-        />
+        {/* La récup d'Océane est propre à chaque exercice : rien ne change au
+            passage de semaine, et une ligne « 1'30 → 1'30 » ne dirait rien. */}
+        {!restUnchanged && (
+          <Change
+            icon={<IconTimer size={17} />}
+            label="Récup"
+            from={levelUp.fromRestSec != null ? restLabel(levelUp.fromRestSec) : undefined}
+            to={
+              levelUp.toRestSec != null
+                ? restLabel(levelUp.toRestSec, levelUp.toRestSecMax)
+                : undefined
+            }
+            last
+          />
+        )}
       </motion.div>
 
       {levelUp.toIsFinal && (
@@ -134,7 +146,9 @@ export function LevelUpCeremony({
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          Dernier palier — c’est le programme final, à conserver.
+          {oceane
+            ? 'Dernière semaine du cycle — compare ton carnet à la semaine 3.'
+            : 'Dernier palier — c’est le programme final, à conserver.'}
         </motion.p>
       )}
 
@@ -149,13 +163,13 @@ export function LevelUpCeremony({
           disabled={busy}
           onClick={() => void accept()}
         >
-          Passer au palier {levelUp.to} <IconChevronRight size={18} />
+          Passer {oceane ? 'à la' : 'au'} {step} {levelUp.to} <IconChevronRight size={18} />
         </Pressable>
         <Pressable
           className="mt-2 w-full py-3.5 text-center text-[15px] font-semibold text-ink-2"
           onClick={onClose}
         >
-          Rester au palier {levelUp.from}
+          Rester {oceane ? 'en' : 'au'} {step} {levelUp.from}
         </Pressable>
       </motion.div>
     </motion.div>

@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react';
 import { useSettings } from '../state/settings';
+import { useNav } from '../state/nav';
+import { db } from '../db/db';
+import { applyOceaneProgram, OCEANE_BLOCK_ID } from '../db/progOceane';
 import { exportBackup, importBackup } from '../db/backup';
 import { Screen, BackHeader, Card } from '../components/Screen';
 import { Segmented } from '../components/ui/Segmented';
@@ -22,8 +25,25 @@ import { CloudCard } from '../components/CloudCard';
 
 export function SettingsScreen() {
   const s = useSettings();
+  const setTab = useNav((n) => n.setTab);
   const fileRef = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  /**
+   * Changer de profil change l'app entière. Le programme de l'autre n'est
+   * installé que sur demande : passer voir à quoi ça ressemble ne doit pas
+   * remplir le planning de séances qui ne sont pas les siennes.
+   */
+  const onProfileChange = async (profile: 'noah' | 'oceane') => {
+    if (profile === s.profile) return;
+    s.update({ profile });
+    setTab('today');
+    if (profile === 'oceane' && !(await db.blocks.get(OCEANE_BLOCK_ID))) {
+      if (window.confirm('Installer le programme d’Océane (12 semaines, séances A et B) ?')) {
+        await applyOceaneProgram();
+      }
+    }
+  };
 
   const onImportFile = async (file: File) => {
     if (
@@ -47,6 +67,19 @@ export function SettingsScreen() {
       <CloudCard />
 
       <Card className="mb-4 !py-1">
+        <Row label="Profil">
+          <div className="w-44">
+            <Segmented
+              ariaLabel="Profil"
+              options={[
+                { value: 'noah', label: 'Noah' },
+                { value: 'oceane', label: 'Océane' },
+              ]}
+              value={s.profile}
+              onChange={(profile) => void onProfileChange(profile)}
+            />
+          </div>
+        </Row>
         <Row label="Unité">
           <div className="w-32">
             <Segmented
@@ -96,6 +129,29 @@ export function SettingsScreen() {
           />
         </Row>
       </Card>
+
+      {s.profile === 'oceane' && (
+        <>
+          <p className="mb-2 text-[13px] font-medium uppercase tracking-wide text-ink-3">
+            Programme
+          </p>
+          <Card className="mb-4 !py-1">
+            <Row label="Réinstaller mes 12 semaines">
+              <Pressable
+                className="rounded-[10px] bg-raised-2 px-3 py-2 text-[13px] font-semibold text-ink-2"
+                onClick={() => {
+                  // Les séances faites et les charges ne bougent pas : seules les
+                  // trames du programme sont réécrites.
+                  if (window.confirm('Réinstaller les séances A et B ? Ton historique est conservé.'))
+                    void applyOceaneProgram();
+                }}
+              >
+                Réinstaller
+              </Pressable>
+            </Row>
+          </Card>
+        </>
+      )}
 
       <p className="mb-2 text-[13px] font-medium uppercase tracking-wide text-ink-3">Données</p>
       <Card className="!py-1">

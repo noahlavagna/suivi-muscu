@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Tab = 'today' | 'progress' | 'history' | 'program';
+export type Tab = 'today' | 'progress' | 'history' | 'program' | 'guide';
 
 export type PushedScreen =
   | { type: 'exercise-detail'; exerciseId: string }
@@ -8,7 +8,10 @@ export type PushedScreen =
   | { type: 'template-editor'; templateId: string }
   | { type: 'library' }
   | { type: 'forge' }
-  | { type: 'settings' };
+  | { type: 'settings' }
+  /* Profil Océane : la fiche d'un exercice, et une section du guide */
+  | { type: 'oceane-exercise'; exerciseId: string }
+  | { type: 'oceane-section'; sectionId: string };
 
 export type StackItem = PushedScreen & { key: number };
 

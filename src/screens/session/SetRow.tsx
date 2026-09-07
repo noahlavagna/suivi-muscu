@@ -8,7 +8,7 @@ import { fmtNumber, kgToUnit } from '../../lib/format';
 import { Stepper } from '../../components/ui/Stepper';
 import { Pressable } from '../../components/ui/Pressable';
 import { Sparks } from '../../components/ui/Sparks';
-import { IconCheck } from '../../components/ui/Icons';
+import { IconCheck, IconTrash } from '../../components/ui/Icons';
 import { springMicro } from '../../lib/springs';
 
 interface Props {
@@ -38,6 +38,9 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
   const patchSet = useSession((s) => s.patchSet);
   const completeSet = useSession((s) => s.completeSet);
   const uncompleteSet = useSession((s) => s.uncompleteSet);
+  const removeSet = useSession((s) => s.removeSet);
+  // La dernière série d'un exercice ne se supprime pas : il ne resterait rien à valider
+  const canRemove = useSession((s) => (s.entries[entryIndex]?.sets.length ?? 0) > 1);
   const reduced = useReducedMotion();
 
   // Gerbe d'étincelles au passage à « validée ». Le ref part de l'état courant :
@@ -60,6 +63,10 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
 
   const isHold = isDurationSet(set.target);
   const free = isFreeSet(set.target);
+  const loadable =
+    exercise.equipment === 'haltères' ||
+    exercise.equipment === 'kettlebell' ||
+    exercise.equipment === 'barre';
   const badge = SET_TYPE_LABEL[set.target.type];
 
   return (
@@ -84,8 +91,23 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
             </span>
           )}
         </span>
-        <span className="tnum text-[12px] text-ink-3">
-          {free ? 'Sans objectif' : `Objectif ${targetLabel(set)}`}
+        <span className="flex items-center gap-1.5">
+          <span className="tnum text-[12px] text-ink-3">
+            {free ? 'Sans objectif' : `Objectif ${targetLabel(set)}`}
+          </span>
+          {canRemove && (
+            <Pressable
+              className="-mr-1.5 flex h-7 w-7 items-center justify-center rounded-full text-ink-3"
+              onClick={() => {
+                // Une série validée est déjà enregistrée : on ne l'efface pas d'un doigt qui glisse
+                if (set.done && !window.confirm('Supprimer cette série déjà validée ?')) return;
+                void removeSet(entryIndex, setIndex);
+              }}
+              aria-label={`Supprimer la série ${setIndex + 1}`}
+            >
+              <IconTrash size={14} />
+            </Pressable>
+          )}
         </span>
       </div>
       <div className="relative flex items-center justify-between gap-2">
@@ -128,16 +150,33 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
               {set.done ? 'Fait' : 'Valide quand c’est bon'}
             </span>
           ) : isHold ? (
-            <Stepper
-              size="sm"
-              value={set.durationSec}
-              step={5}
-              min={5}
-              onChange={(v) => patchSet(entryIndex, setIndex, { durationSec: v })}
-              format={(v) => `${Math.round(v)} s`}
-              disabled={set.done}
-              ariaLabel="Durée"
-            />
+            <>
+              {/* Une marche lestée ou un gainage chargé se tiennent en secondes,
+                  mais la charge est justement ce qu'il faut noter d'une fois
+                  sur l'autre — le poids du corps, lui, n'a rien à saisir. */}
+              {loadable && (
+                <Stepper
+                  size="sm"
+                  value={set.weightKg}
+                  step={exercise.weightIncrementKg}
+                  min={0}
+                  onChange={(v) => patchSet(entryIndex, setIndex, { weightKg: v })}
+                  format={(v) => fmtNumber(kgToUnit(v, unit))}
+                  disabled={set.done}
+                  ariaLabel={`Poids (${unit})`}
+                />
+              )}
+              <Stepper
+                size="sm"
+                value={set.durationSec}
+                step={5}
+                min={5}
+                onChange={(v) => patchSet(entryIndex, setIndex, { durationSec: v })}
+                format={(v) => `${Math.round(v)} s`}
+                disabled={set.done}
+                ariaLabel="Durée"
+              />
+            </>
           ) : (
             <>
               <Stepper

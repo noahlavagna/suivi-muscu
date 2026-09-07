@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import type { ChallengeRow } from '../../db/types';
-import { IconCheck, IconScroll } from '../ui/Icons';
+import { IconCheck, IconScroll, IconSparkle } from '../ui/Icons';
 import { fmtNumber } from '../../lib/format';
+import { useSettings } from '../../state/settings';
 
 interface Props {
   challenge: ChallengeRow & { progress: number };
@@ -9,22 +10,23 @@ interface Props {
 
 /** Le contrat de la semaine, avec sa jauge. */
 export function ChallengeCard({ challenge }: Props) {
+  const oceane = useSettings((s) => s.profile === 'oceane');
   const done = challenge.doneAt !== undefined;
   const pct = Math.min(1, challenge.progress / challenge.target);
 
   return (
-    <div className="mb-4 rounded-[16px] bg-raised p-4">
+    <div className="mb-4 rounded-[var(--radius-card)] bg-raised p-4">
       <div className="flex items-center gap-3">
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
             done ? 'bg-accent text-canvas' : 'bg-accent-dim text-accent'
           }`}
         >
-          {done ? <IconCheck size={18} /> : <IconScroll size={18} />}
+          {done ? <IconCheck size={18} /> : oceane ? <IconSparkle size={18} /> : <IconScroll size={18} />}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
-            Contrat de la semaine {done && '· rempli'}
+            {oceane ? 'Défi de la semaine' : 'Contrat de la semaine'} {done && '· rempli'}
           </p>
           <p className="text-[15px] font-semibold leading-5">{challenge.desc}</p>
         </div>

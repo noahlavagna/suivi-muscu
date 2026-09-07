@@ -277,8 +277,16 @@ export interface ActiveSessionMeta {
   variantChoices?: number[];
 }
 
+/**
+ * Deux personnes, deux applications dans la même app : le profil décide du
+ * programme installé, du vocabulaire, de la direction artistique et des écrans.
+ * C'est un réglage d'appareil — chacune installe la PWA sur son téléphone.
+ */
+export type Profile = 'noah' | 'oceane';
+
 export interface Settings {
   id: 'settings';
+  profile: Profile;
   unit: 'kg' | 'lb';
   theme: 'system' | 'dark' | 'light';
   sound: boolean;
@@ -329,6 +337,7 @@ export interface BossRow {
 
 export const DEFAULT_SETTINGS: Settings = {
   id: 'settings',
+  profile: 'noah',
   unit: 'kg',
   theme: 'system',
   sound: true,

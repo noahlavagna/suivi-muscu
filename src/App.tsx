@@ -27,6 +27,10 @@ import { ensureMonthlyBoss } from './gamification/boss';
 import { evaluateBadges } from './gamification/badges';
 import { computeWrapped, prevMonthKey, type WrappedData } from './gamification/wrapped';
 import { OnboardingScreen } from './screens/Onboarding';
+import { OceaneHome } from './screens/oceane/Home';
+import { OceaneGuide } from './screens/oceane/Guide';
+import { OceaneGuideSection } from './screens/oceane/GuideSection';
+import { OceaneExerciseSheet } from './screens/oceane/ExerciseSheet';
 import { useCloud } from './state/cloud';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db/db';
@@ -47,12 +51,17 @@ function PushedView({ screen }: { screen: StackItem }) {
       return <ForgeScreen />;
     case 'settings':
       return <SettingsScreen />;
+    case 'oceane-exercise':
+      return <OceaneExerciseSheet exerciseId={screen.exerciseId} />;
+    case 'oceane-section':
+      return <OceaneGuideSection sectionId={screen.sectionId} />;
   }
 }
 
 function TabShell() {
   const tab = useNav((s) => s.tab);
   const stack = useNav((s) => s.stack);
+  const oceane = useSettings((s) => s.profile === 'oceane');
   const reduced = useReducedMotion();
 
   return (
@@ -72,7 +81,11 @@ function TabShell() {
             exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
             transition={{ duration: 0.16 }}
           >
-            {tab === 'today' && <TodayScreen />}
+            {/* Même coquille, deux applications : l'accueil et le guide
+                appartiennent au profil, l'historique et la progression sont
+                communs — ils ne parlent que de séries et de kilos. */}
+            {tab === 'today' && (oceane ? <OceaneHome /> : <TodayScreen />)}
+            {tab === 'guide' && (oceane ? <OceaneGuide /> : <TodayScreen />)}
             {tab === 'progress' && <ProgressScreen />}
             {tab === 'history' && <HistoryScreen />}
             {tab === 'program' && <ProgramScreen />}

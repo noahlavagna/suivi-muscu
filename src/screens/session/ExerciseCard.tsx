@@ -8,8 +8,19 @@ import { fmtNumber, fmtTimer, kgToUnit } from '../../lib/format';
 import { fmtDateShort } from '../../lib/dates';
 import { SetRow } from './SetRow';
 import { Pressable } from '../../components/ui/Pressable';
-import { IconCrown, IconNote, IconPlus, IconTimer, IconWrench, IconZap } from '../../components/ui/Icons';
+import {
+  IconBook,
+  IconCrown,
+  IconNote,
+  IconPlus,
+  IconTimer,
+  IconWrench,
+  IconZap,
+} from '../../components/ui/Icons';
 import { ToolsSheet } from './ToolsSheet';
+import { Sheet } from '../../components/ui/Sheet';
+import { guideFor } from '../../oceane/exerciseGuide';
+import { ExerciseGuideView } from '../../oceane/ExerciseGuideView';
 
 interface Props {
   entry: SessionEntry;
@@ -18,10 +29,12 @@ interface Props {
 
 export function ExerciseCard({ entry, entryIndex }: Props) {
   const unit = useSettings((s) => s.unit);
+  const oceane = useSettings((s) => s.profile === 'oceane');
   const addSet = useSession((s) => s.addSet);
   const setEntryNote = useSession((s) => s.setEntryNote);
   const [noteOpen, setNoteOpen] = useState(entry.note.length > 0);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [howOpen, setHowOpen] = useState(false);
   const exercise = useLiveQuery(() => db.exercises.get(entry.exerciseId), [entry.exerciseId]);
   const chargePR = useLiveQuery(
     () => db.prs.get(`${entry.exerciseId}:charge`),
@@ -35,6 +48,10 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
         : [],
     [entry.optionExerciseIds.join('|')],
   );
+
+  // Les fiches sont écrites pour Océane (« pour toi », « ta charnière ») :
+  // elles n'ont pas de sens sur le profil de Noah, même sur un exercice commun.
+  const guide = oceane ? guideFor(entry.exerciseId) : undefined;
 
   if (!exercise) return null;
 
@@ -93,6 +110,21 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
       <h2 className="text-[22px] font-bold leading-7 tracking-[-0.01em]">{exercise.name}</h2>
       {entry.templateNote && (
         <p className="mt-0.5 text-[13px] font-medium text-accent">{entry.templateNote}</p>
+      )}
+
+      {/* La fiche de l'exercice, à portée de pouce entre deux séries : c'est
+          ce qui évite d'avoir à retourner chercher le PDF. */}
+      {guide && (
+        <Pressable
+          className="mt-2.5 flex w-full items-center gap-2 rounded-[var(--radius-ctrl)] bg-accent-dim px-3 py-2 text-left"
+          tapScale={0.99}
+          onClick={() => setHowOpen(true)}
+        >
+          <IconBook size={16} className="shrink-0 text-accent" />
+          <span className="flex-1 text-[13px] font-semibold text-accent">
+            Comment faire — schéma, sensations, erreurs
+          </span>
+        </Pressable>
       )}
 
       {options && options.length > 1 && (
@@ -187,6 +219,12 @@ export function ExerciseCard({ entry, entryIndex }: Props) {
           <IconNote size={18} />
         </Pressable>
       </div>
+
+      <Sheet open={howOpen} onClose={() => setHowOpen(false)} ariaLabel="Comment faire">
+        <div className="pb-4 pt-1">
+          <ExerciseGuideView exerciseId={entry.exerciseId} />
+        </div>
+      </Sheet>
 
       <ToolsSheet
         open={toolsOpen}

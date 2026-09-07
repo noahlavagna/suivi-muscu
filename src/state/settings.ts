@@ -21,8 +21,17 @@ function applyTheme(pref: Settings['theme']) {
   metaTheme?.setAttribute('content', resolved === 'dark' ? '#0C0B0A' : '#F4F2EF');
 }
 
+/**
+ * Le profil pilote la direction artistique par un attribut racine : couleurs,
+ * arrondis et typographie basculent en CSS, sans re-render de l'arbre React.
+ */
+function applyProfile(profile: Settings['profile']) {
+  document.documentElement.dataset.profile = profile;
+}
+
 function applySideEffects(s: SettingsValues) {
   applyTheme(s.theme);
+  applyProfile(s.profile);
   setHapticsEnabled(s.haptics);
   setSoundEnabled(s.sound);
 }
@@ -40,6 +49,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
 
   update(patch) {
     const next: SettingsValues = {
+      profile: get().profile,
       unit: get().unit,
       theme: get().theme,
       sound: get().sound,
@@ -59,3 +69,4 @@ media.addEventListener('change', () => {
 
 // Thème appliqué immédiatement (avant chargement de la base) pour éviter un flash
 applyTheme('system');
+applyProfile(DEFAULT_SETTINGS.profile);

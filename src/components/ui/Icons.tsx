@@ -276,3 +276,60 @@ export const IconDots = (p: IconProps) => (
     <path d="M12 5.5v.01M12 12v.01M12 18.5v.01" strokeWidth={2.6} />
   </Icon>
 );
+
+/* ————— Profil Océane ————— */
+
+export const IconFlower = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="9.5" r="2.4" />
+    <path d="M12 7.1c0-2 .9-3.6 2.4-3.6 1.2 0 1.9 1 1.9 2.1 0 1.4-1.6 2.6-4.3 3.4" />
+    <path d="M12 7.1c0-2-.9-3.6-2.4-3.6-1.2 0-1.9 1-1.9 2.1 0 1.4 1.6 2.6 4.3 3.4" />
+    <path d="M14.1 10.8c1.7-1 3.5-1.2 4.3.1.6 1 .1 2.1-.9 2.7-1.2.7-3-.1-4.9-2" />
+    <path d="M9.9 10.8c-1.7-1-3.5-1.2-4.3.1-.6 1-.1 2.1.9 2.7 1.2.7 3-.1 4.9-2" />
+    <path d="M12 12v9" />
+    <path d="M12 16.5c1.6 0 3-1 3.4-2.6-1.7-.4-3.1.6-3.4 2.6Z" />
+  </Icon>
+);
+
+export const IconLeaf = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20c0-8 5-13 16-13 0 8.5-5.2 13-11 13-2.2 0-3.6-.6-5-1.2Z" />
+    <path d="M4.5 19.5C8 16 11.5 13 16 11" />
+  </Icon>
+);
+
+export const IconSeed = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 21v-7" />
+    <path d="M12 14c0-3 1.8-5 4.5-5 0 3-1.9 5-4.5 5Z" />
+    <path d="M12 17c0-2.4-1.5-4-3.8-4 0 2.4 1.6 4 3.8 4Z" />
+    <path d="M6.5 21h11" />
+  </Icon>
+);
+
+export const IconSparkle = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3.5c.6 4 1.9 5.3 5.9 5.9-4 .6-5.3 1.9-5.9 5.9-.6-4-1.9-5.3-5.9-5.9 4-.6 5.3-1.9 5.9-5.9Z" />
+    <path d="M17.5 15c.3 2 .9 2.6 2.9 2.9-2 .3-2.6.9-2.9 2.9-.3-2-.9-2.6-2.9-2.9 2-.3 2.6-.9 2.9-2.9Z" />
+  </Icon>
+);
+
+export const IconHeart = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 20.5S3.5 15.3 3.5 9.4A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 8.5 1.8c0 5.9-8.5 11.1-8.5 11.1Z" />
+  </Icon>
+);
+
+export const IconBook = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 4.5h5.5A2.5 2.5 0 0 1 12 7v13a2 2 0 0 0-2-2H4Z" />
+    <path d="M20 4.5h-5.5A2.5 2.5 0 0 0 12 7v13a2 2 0 0 1 2-2h6Z" />
+  </Icon>
+);
+
+export const IconShieldAlert = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 2.8 4.8 5.6v5.9c0 4.4 3 8.2 7.2 9.7 4.2-1.5 7.2-5.3 7.2-9.7V5.6Z" />
+    <path d="M12 8.2v4.2M12 15.6v.01" strokeWidth={2.2} />
+  </Icon>
+);

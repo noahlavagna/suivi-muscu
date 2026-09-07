@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import type { BadgeRow, ChallengeRow } from '../db/types';
 import { computeXP, type XPBreakdown } from './xp';
-import { computeStreak, type StreakInfo } from './streak';
+import { computeStreak, scheduledTemplates, type StreakInfo } from './streak';
 import { challengeProgress, weekKey } from './challenges';
 import { startOfWeek } from '../lib/dates';
 
@@ -19,15 +19,16 @@ export interface GamiState {
 export function useGami(): GamiState | undefined {
   return useLiveQuery(async () => {
     const now = new Date();
-    const [xp, workouts, templates, badges, ch, logs] = await Promise.all([
+    const [xp, workouts, templates, blocks, badges, ch, logs] = await Promise.all([
       computeXP(),
       db.workouts.toArray(),
       db.templates.toArray(),
+      db.blocks.toArray(),
       db.badges.toArray(),
       db.challenges.get(weekKey(now)),
       db.setLogs.toArray(),
     ]);
-    const streak = computeStreak(workouts, templates, now);
+    const streak = computeStreak(workouts, scheduledTemplates(templates, blocks), now);
     const challenge = ch ? { ...ch, progress: await challengeProgress(ch) } : null;
     const weekStart = startOfWeek(now).getTime();
     const finishedIds = new Set(workouts.filter((w) => w.finishedAt).map((w) => w.id));

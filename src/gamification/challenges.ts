@@ -2,6 +2,7 @@ import { db } from '../db/db';
 import type { ChallengeKind, ChallengeRow } from '../db/types';
 import { addDays, startOfWeek, toISODate } from '../lib/dates';
 import { prEventList } from './xp';
+import { useSettings } from '../state/settings';
 
 export const CHALLENGE_XP = 150;
 
@@ -17,12 +18,18 @@ async function weekStats(monday: Date): Promise<{ tonnage: number; sets: number 
   };
 }
 
+/** Le libellé est figé à la création : il suit donc le profil du moment. */
 function makeDesc(kind: ChallengeKind, target: number): string {
+  const oceane = useSettings.getState().profile === 'oceane';
   switch (kind) {
     case 'tonnage':
-      return `Forge ${target.toLocaleString('fr-FR')} kg cette semaine`;
+      return oceane
+        ? `Soulève ${target.toLocaleString('fr-FR')} kg cette semaine`
+        : `Forge ${target.toLocaleString('fr-FR')} kg cette semaine`;
     case 'series':
-      return `Frappe ${target} séries cette semaine`;
+      return oceane
+        ? `Valide ${target} séries cette semaine`
+        : `Frappe ${target} séries cette semaine`;
     case 'pr':
       return 'Bats au moins un record cette semaine';
   }

@@ -18,9 +18,9 @@ import { haptics } from '../lib/haptics';
 import { nextInSuperset, supersetRange } from '../lib/superset';
 import { sounds } from '../lib/sound';
 import { useToasts } from './toasts';
-import { evaluateBadges } from '../gamification/badges';
+import { badgeView, evaluateBadges } from '../gamification/badges';
 import { checkChallenge, CHALLENGE_XP } from '../gamification/challenges';
-import { checkBoss, bossState, ensureMonthlyBoss } from '../gamification/boss';
+import { checkBoss, bossState, ensureMonthlyBoss, monthlyFlavor } from '../gamification/boss';
 import { computeRarity, type Rarity } from '../gamification/rarity';
 import {
   XP_PER_BADGE,
@@ -116,6 +116,7 @@ interface SessionStore {
   completeSet: (ei: number, si: number) => Promise<void>;
   uncompleteSet: (ei: number, si: number) => Promise<void>;
   addSet: (ei: number) => void;
+  removeSet: (ei: number, si: number) => Promise<void>;
   switchOption: (ei: number, optionIndex: number) => Promise<void>;
   addWarmupSets: (ei: number, sets: { weightKg: number; reps: number }[]) => void;
   setEntryNote: (ei: number, note: string) => void;
@@ -408,11 +409,12 @@ export const useSession = create<SessionStore>((set, get) => ({
     });
     void checkBoss().then((slain) => {
       if (slain) {
+        const flavor = monthlyFlavor();
         haptics.pr();
         sounds.pr();
         useToasts.getState().push({
-          icon: 'skull',
-          title: 'Colosse terrassé !',
+          icon: flavor.garden ? 'flower' : 'skull',
+          title: flavor.doneTitle,
           sub: `${slain.name} · +${XP_PER_BOSS} XP`,
         });
       }
@@ -512,6 +514,33 @@ export const useSession = create<SessionStore>((set, get) => ({
   },
 
   /**
+   * Supprime une série — celle ajoutée par erreur, en premier lieu.
+   *
+   * Une série validée emporte son enregistrement, et les séries suivantes se
+   * renumérotent en base : `setIndex` sert à recoller les séries à leur cible
+   * quand la séance est restaurée, un trou décalerait tout.
+   */
+  async removeSet(ei, si) {
+    const entry = get().entries[ei];
+    const target = entry?.sets[si];
+    if (!entry || !target || entry.sets.length <= 1) return;
+
+    if (target.logId) await db.setLogs.delete(target.logId);
+    const remaining = entry.sets.filter((_, j) => j !== si);
+    // Les séries validées d'après conservent leur log : on le repointe
+    for (let j = si; j < remaining.length; j++) {
+      const logId = remaining[j].logId;
+      if (logId) await db.setLogs.update(logId, { setIndex: j });
+    }
+    set({
+      entries: get().entries.map((e, i) => (i !== ei ? e : { ...e, sets: remaining })),
+    });
+    if (target.done) await rebuildAllPRs();
+    haptics.light();
+    persistActiveMeta(get());
+  },
+
+  /**
    * Bascule sur une autre option « OU » de l'exercice. Refusé dès qu'une série
    * est validée : les séries enregistrées pointent l'exercice, les remplacer
    * reviendrait à réécrire l'historique de la séance en cours.
@@ -607,9 +636,10 @@ export const useSession = create<SessionStore>((set, get) => ({
 
     const toasts = useToasts.getState();
     if (slainNow) {
+      const flavor = monthlyFlavor();
       toasts.push({
-        icon: 'skull',
-        title: 'Colosse terrassé !',
+        icon: flavor.garden ? 'flower' : 'skull',
+        title: flavor.doneTitle,
         sub: `${slainNow.name} · +${XP_PER_BOSS} XP`,
       });
     }
@@ -621,7 +651,8 @@ export const useSession = create<SessionStore>((set, get) => ({
       });
     }
     for (const b of newBadges) {
-      toasts.push({ icon: b.icon, title: `Badge : ${b.name}`, sub: b.desc });
+      const view = badgeView(b);
+      toasts.push({ icon: view.icon, title: `Badge : ${view.name}`, sub: view.desc });
     }
 
     set({
@@ -636,7 +667,7 @@ export const useSession = create<SessionStore>((set, get) => ({
         prevTonnageKg,
         rarity,
         xpGained,
-        newBadges: newBadges.map((b) => b.name),
+        newBadges: newBadges.map((b) => badgeView(b).name),
         challengeDone: challengeDone !== null,
         boss: {
           name: bossRow.name,

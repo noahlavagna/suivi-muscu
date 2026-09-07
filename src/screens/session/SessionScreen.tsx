@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import { useSession } from '../../state/session';
 import { useNow } from '../../lib/useNow';
 import { fmtTimer } from '../../lib/format';
@@ -11,6 +11,9 @@ import { IconChevronLeft, IconChevronRight } from '../../components/ui/Icons';
 import { ExerciseCard } from './ExerciseCard';
 import { RestBar } from './RestBar';
 import { ExerciseDoneOverlay } from './ExerciseDoneOverlay';
+import { IconShieldAlert } from '../../components/ui/Icons';
+import { SafetySheet } from '../../oceane/SafetySheet';
+import { useSettings } from '../../state/settings';
 
 export function SessionScreen() {
   const name = useSession((s) => s.name);
@@ -24,6 +27,39 @@ export function SessionScreen() {
   const reduced = useReducedMotion();
   const { ref, width } = useMeasureWidth<HTMLDivElement>();
   const [endSheet, setEndSheet] = useState(false);
+  const [safety, setSafety] = useState(false);
+  // Les signaux d'arrêt doivent rester à un doigt pendant toute la séance
+  const oceane = useSettings((st) => st.profile === 'oceane');
+
+  /*
+   * Pager : la position est pilotée à la main plutôt que par `animate={{ x }}`.
+   *
+   * Avec la prop `animate`, un glissé annulé (trop court, ou vers l'exercice
+   * qui n'existe pas au-delà du dernier) laissait la piste immobilisée là où
+   * le doigt l'avait lâchée : l'index ne changeant pas, Framer n'avait aucune
+   * raison de rejouer l'animation, et l'écran restait de travers jusqu'au
+   * prochain changement d'exercice. On recale donc explicitement à chaque fin
+   * de glissé, y compris quand l'index ne bouge pas.
+   */
+  const x = useMotionValue(0);
+  const dragging = useRef(false);
+  // Même ressort que les transitions de page, sous la forme attendue par `animate`
+  const pageSpring = { type: 'spring', stiffness: 300, damping: 32 } as const;
+
+  const slideTo = (i: number) => {
+    if (width <= 0) return;
+    if (reduced) x.set(-i * width);
+    else animate(x, -i * width, pageSpring);
+  };
+
+  useEffect(() => {
+    if (width <= 0 || dragging.current) return;
+    if (reduced) x.set(-index * width);
+    else {
+      const controls = animate(x, -index * width, pageSpring);
+      return () => controls.stop();
+    }
+  }, [index, width, reduced, x]);
 
   const totalSets = entries.reduce((n, e) => n + e.sets.length, 0);
   const doneSets = entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
@@ -42,14 +78,25 @@ export function SessionScreen() {
             {fmtTimer((now - startedAt) / 1000)} · {doneSets}/{totalSets} séries
           </p>
         </div>
-        <Pressable
-          className={`shrink-0 rounded-full px-4 py-2 text-[15px] font-semibold ${
-            allDone ? 'bg-accent text-canvas' : 'bg-raised text-accent'
-          }`}
-          onClick={() => setEndSheet(true)}
-        >
-          Terminer
-        </Pressable>
+        <div className="flex shrink-0 items-center gap-2">
+          {oceane && (
+            <Pressable
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-raised text-negative"
+              onClick={() => setSafety(true)}
+              aria-label="Signaux d’arrêt"
+            >
+              <IconShieldAlert size={19} />
+            </Pressable>
+          )}
+          <Pressable
+            className={`rounded-full px-4 py-2 text-[15px] font-semibold ${
+              allDone ? 'bg-accent text-canvas' : 'bg-raised text-accent'
+            }`}
+            onClick={() => setEndSheet(true)}
+          >
+            Terminer
+          </Pressable>
+        </div>
       </div>
 
       {/* Pager d'exercices */}
@@ -57,18 +104,26 @@ export function SessionScreen() {
         {width > 0 && (
           <motion.div
             className="flex h-full"
-            style={{ width: width * entries.length }}
-            animate={{ x: -index * width }}
-            transition={reduced ? { duration: 0 } : springPage}
+            style={{ width: width * entries.length, x }}
             drag={entries.length > 1 ? 'x' : false}
             dragDirectionLock
+            dragMomentum={false}
             dragConstraints={{ left: -(entries.length - 1) * width, right: 0 }}
             dragElastic={0.12}
+            onDragStart={() => {
+              dragging.current = true;
+            }}
             onDragEnd={(_, info) => {
+              dragging.current = false;
               const threshold = width / 4;
-              if (info.offset.x < -threshold || info.velocity.x < -500) setIndex(index + 1);
-              else if (info.offset.x > threshold || info.velocity.x > 500) setIndex(index - 1);
-              else setIndex(index);
+              const forward = info.offset.x < -threshold || info.velocity.x < -500;
+              const back = info.offset.x > threshold || info.velocity.x > 500;
+              const next = Math.max(
+                0,
+                Math.min(entries.length - 1, index + (forward ? 1 : back ? -1 : 0)),
+              );
+              slideTo(next);
+              if (next !== index) setIndex(next);
             }}
           >
             {entries.map((entry, i) => (
@@ -125,6 +180,7 @@ export function SessionScreen() {
 
       <ExerciseDoneOverlay />
       <RestBar />
+      <SafetySheet open={safety} onClose={() => setSafety(false)} />
 
       {/* Fin de séance */}
       <Sheet open={endSheet} onClose={() => setEndSheet(false)} ariaLabel="Terminer la séance">

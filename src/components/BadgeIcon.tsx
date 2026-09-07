@@ -6,7 +6,12 @@ import {
   IconCrown,
   IconDumbbell,
   IconFlame,
+  IconFlower,
   IconGauntlet,
+  IconHeart,
+  IconLeaf,
+  IconSeed,
+  IconSparkle,
   IconHammer,
   IconHelmet,
   IconMedal,
@@ -41,6 +46,12 @@ const MAP: Record<string, ComponentType<SVGProps<SVGSVGElement> & { size?: numbe
   boot: IconBoot,
   gauntlet: IconGauntlet,
   skull: IconSkull,
+  // Profil Océane
+  flower: IconFlower,
+  leaf: IconLeaf,
+  seed: IconSeed,
+  sparkle: IconSparkle,
+  heart: IconHeart,
 };
 
 export function BadgeIcon({ icon, size = 18 }: { icon: string; size?: number }) {

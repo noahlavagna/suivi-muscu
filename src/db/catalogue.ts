@@ -252,6 +252,7 @@ const ABDOS: Seed[] = [
   ['v-up', 'V-up', ['abdos'], 'poids du corps', 'isolation', 1, 60],
   ['toes-to-bar', 'Toes to bar', ['abdos'], 'poids du corps', 'polyarticulaire', 1, 90],
   ['woodchopper', 'Woodchopper poulie', ['abdos'], 'poulie', 'isolation', 2.5, 60],
+  ['suitcase-carry', 'Port de valise (une main)', ['abdos', 'avant-bras', 'trapèzes'], 'haltères', 'gainage', 2, 90, true, ['suitcase carry', 'marche lestée unilatérale']],
 ];
 
 /* ————————————————— Explosif et haltérophilie ————————————————— */
@@ -318,6 +319,8 @@ const MOBILITE: Seed[] = [
   ['squat-profond-tenu', 'Squat profond tenu', ['mobilité'], 'poids du corps', 'mobilité', 1, 45, true],
   ['couch-stretch', 'Couch stretch', ['mobilité'], 'poids du corps', 'mobilité', 1, 45, true],
   ['scorpion', 'Scorpion allongé', ['mobilité'], 'poids du corps', 'mobilité', 1, 30, true],
+  ['ext-thoracique-rouleau', 'Extension thoracique sur rouleau', ['mobilité'], 'autre', 'mobilité', 1, 30, true, ['foam roller thoracique', 'rouleau haut du dos']],
+  ['open-book', 'Open book', ['mobilité'], 'poids du corps', 'mobilité', 1, 30, true, ['livre ouvert', 'rotation thoracique sur le côté']],
   ['foam-roll-dos', 'Foam roller dos', ['mobilité'], 'autre', 'mobilité', 1, 45, true],
   ['foam-roll-quadriceps', 'Foam roller quadriceps', ['mobilité'], 'autre', 'mobilité', 1, 45, true],
   ['foam-roll-ischios', 'Foam roller ischios', ['mobilité'], 'autre', 'mobilité', 1, 45, true],

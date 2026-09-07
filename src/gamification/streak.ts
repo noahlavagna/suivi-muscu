@@ -1,5 +1,21 @@
-import type { Workout, WorkoutTemplate } from '../db/types';
+import type { BlockRow, Workout, WorkoutTemplate } from '../db/types';
 import { addDays, startOfWeek, toISODate } from '../lib/dates';
+import { blockViews, isScheduled } from '../lib/block';
+
+/**
+ * Les séances réellement au programme cette semaine.
+ *
+ * Un bloc embarque toutes ses semaines en base (une trame par palier) : sans
+ * ce filtre, « planifiées » comptait les 4 paliers à la fois et la semaine
+ * n'était jamais validable.
+ */
+export function scheduledTemplates(
+  templates: WorkoutTemplate[],
+  blocks: BlockRow[],
+): WorkoutTemplate[] {
+  const views = blockViews(blocks);
+  return templates.filter((t) => isScheduled(t, views));
+}
 
 export interface StreakInfo {
   /** Semaines consécutives où le programme a été respecté */

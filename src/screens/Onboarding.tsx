@@ -7,18 +7,24 @@ import {
   PROGRAM_PRESETS,
 } from '../db/programs';
 import { applyNoahProgram, NOAH_PRESET_META } from '../db/progNoah';
+import { applyOceaneProgram, OCEANE_PRESET_META } from '../db/progOceane';
+import { useSettings } from '../state/settings';
 import { Pressable } from '../components/ui/Pressable';
 import { Flame } from '../components/gami/Flame';
-import { IconChevronRight } from '../components/ui/Icons';
+import { IconChevronRight, IconFlower } from '../components/ui/Icons';
 import { springPage } from '../lib/springs';
 
 /**
- * Premier lancement (aucun programme) : pitch + choix d'un programme.
- * Ne s'affiche jamais sur une base existante.
+ * Premier lancement : qui utilise ce téléphone, puis quel programme.
+ *
+ * Le profil est la première question parce qu'il décide de tout le reste —
+ * l'univers, le vocabulaire, les écrans. Océane n'a pas de choix de programme
+ * à faire : le sien est écrit, on l'installe et on la laisse tranquille.
  */
 export function OnboardingScreen({ onDone }: { onDone: () => void }) {
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<'who' | 'pitch' | 'programs'>('who');
   const [busy, setBusy] = useState(false);
+  const updateSettings = useSettings((s) => s.update);
   const reduced = useReducedMotion();
 
   const pick = async (apply: () => Promise<void>) => {
@@ -26,6 +32,11 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
     setBusy(true);
     await apply();
     onDone();
+  };
+
+  const chooseOceane = () => {
+    updateSettings({ profile: 'oceane' });
+    void pick(applyOceaneProgram);
   };
 
   const cards = [
@@ -61,12 +72,65 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
       }}
     >
       <AnimatePresence mode="wait">
-        {step === 0 ? (
+        {step === 'who' ? (
+          <motion.div
+            key="who"
+            className="flex flex-1 flex-col justify-center"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, x: -60 }}
+            transition={springPage}
+          >
+            <h1 className="text-[30px] font-bold tracking-[-0.02em]">C’est qui ?</h1>
+            <p className="mb-6 mt-1 text-[15px] leading-6 text-ink-2">
+              Une app, deux programmes. Ce choix se change ensuite dans les réglages.
+            </p>
+
+            <Pressable
+              className="mb-3 w-full rounded-[20px] bg-raised p-5 text-left disabled:opacity-50"
+              disabled={busy}
+              onClick={() => {
+                updateSettings({ profile: 'noah' });
+                setStep('pitch');
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <Flame lit size={34} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[19px] font-bold">Noah</p>
+                  <p className="text-[13px] leading-4.5 text-ink-2">
+                    La Forge — records, colosses, programme à paliers.
+                  </p>
+                </div>
+                <IconChevronRight size={18} className="text-ink-3" />
+              </div>
+            </Pressable>
+
+            <Pressable
+              className="w-full rounded-[20px] bg-raised p-5 text-left disabled:opacity-50"
+              disabled={busy}
+              onClick={chooseOceane}
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-accent-dim text-accent">
+                  <IconFlower size={22} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[19px] font-bold">Océane</p>
+                  <p className="text-[13px] leading-4.5 text-ink-2">
+                    {OCEANE_PRESET_META.name} — guide, schémas, et tout expliqué.
+                  </p>
+                </div>
+                <IconChevronRight size={18} className="text-ink-3" />
+              </div>
+            </Pressable>
+          </motion.div>
+        ) : step === 'pitch' ? (
           <motion.div
             key="pitch"
             className="flex flex-1 flex-col items-center justify-center text-center"
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reduced ? { opacity: 0 } : { opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
             exit={reduced ? { opacity: 0 } : { opacity: 0, x: -60 }}
             transition={springPage}
           >
@@ -81,7 +145,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
             </p>
             <Pressable
               className="mt-10 w-full max-w-[320px] rounded-[16px] bg-accent py-4 text-[17px] font-bold text-canvas"
-              onClick={() => setStep(1)}
+              onClick={() => setStep('programs')}
             >
               Allumer la forge
             </Pressable>

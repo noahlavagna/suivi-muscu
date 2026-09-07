@@ -4,7 +4,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { db } from '../../db/db';
 import { useSession } from '../../state/session';
 import { Sparks } from '../../components/ui/Sparks';
-import { IconAnvil, IconCheck } from '../../components/ui/Icons';
+import { IconAnvil, IconCheck, IconFlower } from '../../components/ui/Icons';
+import { useSettings } from '../../state/settings';
 import { springSheet } from '../../lib/springs';
 
 const HOLD_MS = 1250;
@@ -20,6 +21,7 @@ export function ExerciseDoneOverlay() {
   const setIndex = useSession((s) => s.setIndex);
   const clear = useSession((s) => s.clearExerciseDone);
   const reduced = useReducedMotion();
+  const oceane = useSettings((s) => s.profile === 'oceane');
 
   const doneId = done != null ? entries[done.index]?.exerciseId : undefined;
   const nextId = done?.nextIndex != null ? entries[done.nextIndex]?.exerciseId : undefined;
@@ -64,7 +66,13 @@ export function ExerciseDoneOverlay() {
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 420, damping: 16 }}
             >
-              {done.isWarmup ? <IconCheck size={30} /> : <IconAnvil size={30} />}
+              {done.isWarmup ? (
+                <IconCheck size={30} />
+              ) : oceane ? (
+                <IconFlower size={30} />
+              ) : (
+                <IconAnvil size={30} />
+              )}
             </motion.span>
           </div>
 

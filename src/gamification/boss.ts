@@ -1,5 +1,6 @@
 import { db } from '../db/db';
 import type { BossRow } from '../db/types';
+import { useSettings } from '../state/settings';
 
 /**
  * Le Colosse du mois : ses PV = un objectif de tonnage calibré sur ton
@@ -21,6 +22,56 @@ const BOSS_NAMES = [
   'Ogre de Gueuse',
   'Sphinx de Vanadium',
 ];
+
+/**
+ * Même mécanique côté Océane, autre récit : l'objectif de tonnage du mois est
+ * un jardin qui fleurit plutôt qu'un colosse à abattre — et il est calibré
+ * pour une débutante à deux séances par semaine, sinon il ne fleurit jamais.
+ */
+const GARDEN_NAMES = [
+  'Champ de Pivoines',
+  'Allée de Lavande',
+  'Verger en Fleurs',
+  'Jardin de Roses',
+  'Prairie de Coquelicots',
+  'Serre aux Orchidées',
+  'Bosquet de Magnolias',
+  'Massif de Dahlias',
+  'Sentier de Glycines',
+  'Clairière de Jasmin',
+  'Terrasse de Camélias',
+  'Vallon de Tournesols',
+];
+
+export interface MonthlyFlavor {
+  /** Étiquette de la carte */
+  label: string;
+  /** État atteint */
+  doneLabel: string;
+  /** Verbe du toast */
+  doneTitle: string;
+  /** Ce qui reste à faire */
+  remainingLabel: string;
+  garden: boolean;
+}
+
+export function monthlyFlavor(): MonthlyFlavor {
+  return useSettings.getState().profile === 'oceane'
+    ? {
+        label: 'Jardin du mois',
+        doneLabel: 'En pleine fleur',
+        doneTitle: 'Jardin en fleur !',
+        remainingLabel: 'encore',
+        garden: true,
+      }
+    : {
+        label: 'Colosse du mois',
+        doneLabel: 'Terrassé',
+        doneTitle: 'Colosse terrassé !',
+        remainingLabel: 'reste',
+        garden: false,
+      };
+}
 
 const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII', ' IX', ' X'];
 
@@ -51,18 +102,25 @@ export async function ensureMonthlyBoss(now = new Date()): Promise<BossRow> {
   const existing = await db.bosses.get(id);
   if (existing) return existing;
 
+  const garden = monthlyFlavor().garden;
   const prevTonnage = await monthTonnage(prevMonthKey(id));
-  // Premier boss volontairement abordable ; ensuite +5 % vs le mois passé
+  // Premier objectif volontairement abordable ; ensuite +5 % vs le mois passé.
+  // L'échelle d'une débutante à 2 séances n'est pas celle de 4 séances lourdes.
+  const step = garden ? 250 : 500;
+  const floor = garden ? 3_000 : 10_000;
   const hpTotal =
     prevTonnage > 0
-      ? Math.max(10_000, Math.round((prevTonnage * 1.05) / 500) * 500)
-      : 25_000;
+      ? Math.max(floor, Math.round((prevTonnage * 1.05) / step) * step)
+      : garden
+        ? 6_000
+        : 25_000;
 
   // Index depuis janvier 2026 : le cycle des noms recommence avec un numéral romain
   const d = new Date(`${id}-15T12:00:00`);
   const monthIndex = Math.max(0, (d.getFullYear() - 2026) * 12 + d.getMonth());
-  const cycle = Math.floor(monthIndex / BOSS_NAMES.length) % ROMAN.length;
-  const name = BOSS_NAMES[monthIndex % BOSS_NAMES.length] + ROMAN[cycle];
+  const names = garden ? GARDEN_NAMES : BOSS_NAMES;
+  const cycle = Math.floor(monthIndex / names.length) % ROMAN.length;
+  const name = names[monthIndex % names.length] + ROMAN[cycle];
 
   const row: BossRow = { id, name, hpTotal, createdAt: Date.now() };
   await db.bosses.put(row);
