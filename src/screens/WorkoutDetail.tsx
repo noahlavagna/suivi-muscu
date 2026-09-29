@@ -10,7 +10,7 @@ import { Pressable } from '../components/ui/Pressable';
 import { Sheet } from '../components/ui/Sheet';
 import { Stepper } from '../components/ui/Stepper';
 import { IconTrash } from '../components/ui/Icons';
-import { fmtDurationLong, fmtNumber, fmtTonnage, kgToUnit } from '../lib/format';
+import { fmtDurationLong, fmtNumber, fmtTonnage, kgToUnit, weightTextEdit } from '../lib/format';
 import { fmtDateLong } from '../lib/dates';
 
 export function WorkoutDetailScreen({ workoutId }: { workoutId: string }) {
@@ -143,6 +143,7 @@ export function WorkoutDetailScreen({ workoutId }: { workoutId: string }) {
                     onChange={(v) => setEditLog({ ...editLog, weightKg: v })}
                     format={(v) => fmtNumber(kgToUnit(v, unit))}
                     ariaLabel="Poids"
+                    edit={weightTextEdit(unit)}
                   />
                   <Stepper
                     label="Reps"
@@ -150,6 +151,7 @@ export function WorkoutDetailScreen({ workoutId }: { workoutId: string }) {
                     step={1}
                     onChange={(v) => setEditLog({ ...editLog, reps: v })}
                     ariaLabel="Répétitions"
+                    edit={{ toText: String, fromText: Math.round }}
                   />
                 </>
               ) : (

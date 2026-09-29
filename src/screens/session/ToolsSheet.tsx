@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import type { Exercise } from '../../db/types';
 import { useSession, type SessionEntry } from '../../state/session';
 import { useSettings } from '../../state/settings';
-import { fmtNumber, kgToUnit } from '../../lib/format';
+import { db } from '../../db/db';
+import { fmtNumber, kgToUnit, weightTextEdit } from '../../lib/format';
+import { Stepper } from '../../components/ui/Stepper';
 import { Sheet } from '../../components/ui/Sheet';
 import { Segmented } from '../../components/ui/Segmented';
 import { Pressable } from '../../components/ui/Pressable';
@@ -76,6 +78,24 @@ export function ToolsSheet({ open, onClose, entry, entryIndex, exercise }: Props
         <p className="tnum mb-3 text-[13px] text-ink-2">
           Charge de travail : {base > 0 ? w(base) : '—'}
         </p>
+        {/* Le pas des +/− suit la pile de la machine : 2,5 par défaut, mais
+            beaucoup de machines montent par 5, 7 ou 4,5 kg. */}
+        <div className="mb-3 flex items-center justify-between rounded-[12px] bg-raised-2 px-4 py-2.5">
+          <div>
+            <p className="text-[14px] font-medium">Pas de la machine</p>
+            <p className="text-[12px] text-ink-3">Écart entre deux crans des +/−</p>
+          </div>
+          <Stepper
+            size="sm"
+            value={exercise.weightIncrementKg}
+            step={0.5}
+            min={0.25}
+            onChange={(v) => void db.exercises.update(exercise.id, { weightIncrementKg: v })}
+            format={(v) => `${fmtNumber(kgToUnit(v, unit), 2)}`}
+            ariaLabel={`Pas (${unit})`}
+            edit={weightTextEdit(unit)}
+          />
+        </div>
         <Segmented
           ariaLabel="Outil"
           options={[

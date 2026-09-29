@@ -8,7 +8,7 @@ import { Sheet } from '../components/ui/Sheet';
 import { Stepper } from '../components/ui/Stepper';
 import { Toggle } from '../components/ui/Toggle';
 import { IconSearch } from '../components/ui/Icons';
-import { fmtTimer } from '../lib/format';
+import { fmtNumber, fmtTimer, weightTextEdit } from '../lib/format';
 import { matches } from '../lib/search';
 
 export function LibraryScreen() {
@@ -130,10 +130,11 @@ export function LibraryScreen() {
                   size="sm"
                   value={editing.weightIncrementKg}
                   step={0.5}
-                  min={0.5}
+                  min={0.25}
                   onChange={(v) => patch({ weightIncrementKg: v })}
-                  format={(v) => `${v} kg`}
+                  format={(v) => `${fmtNumber(v, 2)} kg`}
                   ariaLabel="Incrément"
+                  edit={weightTextEdit('kg')}
                 />
               </div>
               <div className="flex items-center justify-between rounded-[12px] bg-raised-2 px-4 py-3">

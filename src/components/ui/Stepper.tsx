@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable } from './Pressable';
 import { AnimatedNumber } from './AnimatedNumber';
 import { IconMinus, IconPlus } from './Icons';
@@ -14,6 +14,18 @@ interface Props {
   label?: string;
   size?: 'md' | 'sm';
   ariaLabel: string;
+  /**
+   * Saisie au clavier : un tap sur la valeur ouvre un champ. Les machines ont
+   * des piles aux paliers irréguliers (4,5 · 7 · 11,3 kg) qu'aucun pas fixe
+   * n'atteint — les +/− restent pour les réglages courants.
+   * `toText` donne le texte de départ, `fromText` convertit la saisie (unité),
+   * `onSubmit` remplace `onChange` pour une valeur tapée.
+   */
+  edit?: {
+    toText: (v: number) => string;
+    fromText: (n: number) => number;
+    onSubmit?: (v: number) => void;
+  };
 }
 
 /** Stepper +/− avec répétition au maintien. */
@@ -27,7 +39,9 @@ export function Stepper({
   label,
   size = 'md',
   ariaLabel,
+  edit,
 }: Props) {
+  const [draft, setDraft] = useState<string | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout>>();
   const repeat = useRef<ReturnType<typeof setInterval>>();
   const latest = useRef({ value, step, min, onChange });
@@ -62,6 +76,18 @@ export function Stepper({
       ? 'w-[72px] text-center text-[22px] font-semibold leading-7'
       : 'w-[54px] text-center text-[18px] font-semibold leading-6';
 
+  const commit = () => {
+    if (draft == null || !edit) return;
+    const n = Number(draft.replace(',', '.').trim());
+    setDraft(null);
+    if (draft.trim() === '' || !Number.isFinite(n)) return;
+    const next = Math.max(min, Math.round(edit.fromText(n) * 100) / 100);
+    if (next !== value) {
+      haptics.light();
+      (edit.onSubmit ?? onChange)(next);
+    }
+  };
+
   const holdProps = (dir: 1 | -1) => ({
     onPointerDown: () => startHold(dir),
     onPointerUp: endHold,
@@ -84,7 +110,34 @@ export function Stepper({
         >
           <IconMinus size={size === 'md' ? 20 : 17} />
         </Pressable>
-        <AnimatedNumber value={value} format={format} className={valueCls} />
+        {draft != null ? (
+          <input
+            type="text"
+            inputMode="decimal"
+            autoFocus
+            className={`${valueCls} tnum rounded-[8px] bg-raised-2 text-ink outline-none ring-2 ring-accent`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key === 'Escape') setDraft(null);
+            }}
+            aria-label={ariaLabel}
+          />
+        ) : edit && !disabled ? (
+          <button
+            type="button"
+            className="rounded-[8px] underline decoration-ink-3/40 decoration-dotted underline-offset-4"
+            onClick={() => setDraft(edit.toText(value))}
+            aria-label={`${ariaLabel} : saisir`}
+          >
+            <AnimatedNumber value={value} format={format} className={valueCls} />
+          </button>
+        ) : (
+          <AnimatedNumber value={value} format={format} className={valueCls} />
+        )}
         <Pressable
           className={btn}
           disabled={disabled}

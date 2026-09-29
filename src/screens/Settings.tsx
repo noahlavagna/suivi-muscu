@@ -22,6 +22,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 import { CloudCard } from '../components/CloudCard';
+import { DuoCard } from '../components/duo/DuoCard';
 
 export function SettingsScreen() {
   const s = useSettings();
@@ -65,6 +66,8 @@ export function SettingsScreen() {
       <BackHeader title="Réglages" />
 
       <CloudCard />
+
+      <DuoCard />
 
       <Card className="mb-4 !py-1">
         <Row label="Profil">

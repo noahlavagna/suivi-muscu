@@ -11,6 +11,7 @@ import { Sheet } from '../components/ui/Sheet';
 import { useNav } from '../state/nav';
 import { useGami } from '../gamification/useGami';
 import { HeroForge } from '../components/gami/HeroForge';
+import { DuoPill } from '../components/duo/DuoPartner';
 import { ChallengeCard } from '../components/gami/ChallengeCard';
 import { EquivalentCard } from '../components/gami/EquivalentCard';
 import { BadgesStrip } from '../components/gami/BadgesStrip';
@@ -149,6 +150,8 @@ export function TodayScreen() {
       >
         Aujourd’hui
       </LargeTitle>
+
+      <DuoPill className="mb-4" />
 
       {gami && <HeroForge gami={gami} />}
 

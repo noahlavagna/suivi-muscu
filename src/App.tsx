@@ -32,6 +32,8 @@ import { OceaneGuide } from './screens/oceane/Guide';
 import { OceaneGuideSection } from './screens/oceane/GuideSection';
 import { OceaneExerciseSheet } from './screens/oceane/ExerciseSheet';
 import { useCloud } from './state/cloud';
+import { useDuo } from './state/duo';
+import { CheerPopup } from './components/duo/CheerPopup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db/db';
 import type { OnboardedMeta, WrappedMeta } from './db/types';
@@ -141,7 +143,7 @@ export default function App() {
       await useSettings.getState().load();
       await useSession.getState().restore();
       setReady(true);
-      void useCloud.getState().init();
+      void useCloud.getState().init().then(() => useDuo.getState().init());
       // Gamification : contrat, Colosse, badges hors séance, récap mensuel
       await ensureWeeklyChallenge();
       await ensureMonthlyBoss();
@@ -224,6 +226,7 @@ export default function App() {
         </AnimatePresence>
       </motion.div>
       <ToastHub />
+      <CheerPopup />
       <SummarySheet />
       {/* La montée de palier attend que le récap de séance soit refermé */}
       <AnimatePresence>

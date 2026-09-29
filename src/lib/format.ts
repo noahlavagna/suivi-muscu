@@ -8,6 +8,12 @@ export const kgToUnit = (kg: number, unit: Unit): number =>
 export const unitToKg = (value: number, unit: Unit): number =>
   unit === 'kg' ? value : value * KG_PER_LB;
 
+/** Saisie clavier d'un poids (voir `Stepper.edit`) : texte dans l'unité affichée, stockage en kg. */
+export const weightTextEdit = (unit: Unit) => ({
+  toText: (kg: number) => String(Math.round(kgToUnit(kg, unit) * 100) / 100).replace('.', ','),
+  fromText: (n: number) => unitToKg(n, unit),
+});
+
 /** 82.5 → "82,5" · 80 → "80" (affichage fr, au plus 1 décimale) */
 export function fmtNumber(value: number, maxDecimals = 1): string {
   const rounded =

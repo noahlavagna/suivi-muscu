@@ -4,7 +4,7 @@ import type { Exercise } from '../../db/types';
 import { isDurationSet, isFreeSet, SET_TYPE_LABEL } from '../../db/types';
 import { useSession, type SessionSet } from '../../state/session';
 import { useSettings } from '../../state/settings';
-import { fmtNumber, kgToUnit } from '../../lib/format';
+import { fmtNumber, kgToUnit, weightTextEdit } from '../../lib/format';
 import { Stepper } from '../../components/ui/Stepper';
 import { Pressable } from '../../components/ui/Pressable';
 import { Sparks } from '../../components/ui/Sparks';
@@ -60,6 +60,24 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
     const t = setTimeout(() => setFlash(false), 700);
     return () => clearTimeout(t);
   }, [flash]);
+
+  /*
+   * Poids tapé au clavier : c'est le réglage de la machine, pas un essai sur
+   * une série. Il descend donc aussi sur les séries suivantes pas encore
+   * validées qui portaient l'ancienne charge — une pyramide, dont les charges
+   * diffèrent déjà, n'est pas écrasée.
+   */
+  const weightEdit = {
+    ...weightTextEdit(unit),
+    onSubmit: (v: number) => {
+      const sets = useSession.getState().entries[entryIndex]?.sets ?? [];
+      const old = sets[setIndex]?.weightKg;
+      sets.forEach((s, j) => {
+        if (j === setIndex || (j > setIndex && !s.done && s.weightKg === old))
+          patchSet(entryIndex, j, { weightKg: v });
+      });
+    },
+  };
 
   const isHold = isDurationSet(set.target);
   const free = isFreeSet(set.target);
@@ -164,6 +182,7 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
                   format={(v) => fmtNumber(kgToUnit(v, unit))}
                   disabled={set.done}
                   ariaLabel={`Poids (${unit})`}
+                  edit={weightEdit}
                 />
               )}
               <Stepper
@@ -188,6 +207,7 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
                 format={(v) => fmtNumber(kgToUnit(v, unit))}
                 disabled={set.done}
                 ariaLabel={`Poids (${unit})`}
+                edit={weightEdit}
               />
               <Stepper
                 size="sm"
@@ -198,6 +218,7 @@ export function SetRow({ entryIndex, setIndex, set, exercise }: Props) {
                 format={(v) => `${Math.round(v)}`}
                 disabled={set.done}
                 ariaLabel="Répétitions"
+                edit={{ toText: String, fromText: Math.round }}
               />
             </>
           )}

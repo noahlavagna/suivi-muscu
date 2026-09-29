@@ -14,6 +14,7 @@ import { ExerciseDoneOverlay } from './ExerciseDoneOverlay';
 import { IconShieldAlert } from '../../components/ui/Icons';
 import { SafetySheet } from '../../oceane/SafetySheet';
 import { useSettings } from '../../state/settings';
+import { DuoPill } from '../../components/duo/DuoPartner';
 
 export function SessionScreen() {
   const name = useSession((s) => s.name);
@@ -97,6 +98,10 @@ export function SessionScreen() {
             Terminer
           </Pressable>
         </div>
+      </div>
+
+      <div className="px-5 pb-2">
+        <DuoPill />
       </div>
 
       {/* Pager d'exercices */}

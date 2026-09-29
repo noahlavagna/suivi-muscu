@@ -17,6 +17,7 @@ import {
 import { BossCard } from '../../components/gami/BossCard';
 import { ChallengeCard } from '../../components/gami/ChallengeCard';
 import { BloomHero } from '../../oceane/BloomHero';
+import { DuoPill } from '../../components/duo/DuoPartner';
 import { SafetySheet } from '../../oceane/SafetySheet';
 import { BloomBadges } from '../../oceane/BloomBadges';
 import { blockViews, defaultOptionIndexes, inCurrentWeek, isScheduled, optionAt } from '../../lib/block';
@@ -208,6 +209,8 @@ export function OceaneHome() {
       >
         Salut Océane
       </LargeTitle>
+
+      <DuoPill className="mb-4" />
 
       {gami && <BloomHero gami={gami} />}
 
