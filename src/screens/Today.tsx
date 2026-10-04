@@ -7,7 +7,7 @@ import { useSettings } from '../state/settings';
 import { Screen, LargeTitle, Card } from '../components/Screen';
 import { Pressable } from '../components/ui/Pressable';
 import { IconCheck, IconGear, IconMoon } from '../components/ui/Icons';
-import { Sheet } from '../components/ui/Sheet';
+import { SessionsSheet } from '../components/SessionsSheet';
 import { useNav } from '../state/nav';
 import { useGami } from '../gamification/useGami';
 import { HeroForge } from '../components/gami/HeroForge';
@@ -280,7 +280,7 @@ export function TodayScreen() {
         className="mb-4 mt-3 w-full py-2.5 text-center text-[14px] font-semibold text-ink-2"
         onClick={() => setOtherOpen(true)}
       >
-        Lancer une autre séance…
+        Choisir une séance · planifier mes jours
       </Pressable>
 
       {gami?.challenge && <ChallengeCard challenge={gami.challenge} />}
@@ -292,31 +292,12 @@ export function TodayScreen() {
       )}
       {gami && <BadgesStrip unlocked={gami.unlocked} />}
 
-      <Sheet open={otherOpen} onClose={() => setOtherOpen(false)} ariaLabel="Choisir une séance">
-        <div className="pb-3 pt-1">
-          <h2 className="mb-3 text-[20px] font-bold">Lancer une séance</h2>
-          {launchable.map((t) => (
-            <Pressable
-              key={t.id}
-              className="flex w-full items-baseline justify-between gap-3 border-b border-sep py-3.5 text-left last:border-b-0"
-              onClick={() => {
-                setOtherOpen(false);
-                void start(t.id);
-              }}
-            >
-              <span className="min-w-0 truncate text-[16px] font-medium">
-                {t.name}
-                {t.optionalDay && (
-                  <span className="ml-1.5 text-[12px] font-normal text-ink-3">optionnel</span>
-                )}
-              </span>
-              <span className="tnum shrink-0 text-[13px] text-ink-3">
-                {t.items.filter((i) => !isWarmupSets(i.sets)).length} exercices
-              </span>
-            </Pressable>
-          ))}
-        </div>
-      </Sheet>
+      <SessionsSheet
+        open={otherOpen}
+        onClose={() => setOtherOpen(false)}
+        templates={launchable}
+        onStart={(id) => void start(id)}
+      />
     </Screen>
   );
 }

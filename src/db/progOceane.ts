@@ -159,7 +159,7 @@ const seanceA = (week: number): TemplateItem[] => {
       variants: [
         {
           exerciseId: 'pont-fessier',
-          sets: reps(3, 15),
+          sets: reps(p.sets, 15),
           note: 'Repli si ça tire dans le dos : au sol, sans charge',
         },
       ],
@@ -334,6 +334,27 @@ export function oceaneTemplateFor(day: 'a' | 'b', week: number): TemplateItem[] 
 }
 
 export const OCEANE_WARMUP = WARMUP;
+
+/** Nombre de séries d'un exercice à une semaine donnée, variantes comprises. */
+export function oceaneSetCount(exerciseId: string, week: number): number | undefined {
+  for (const item of [...seanceA(week), ...seanceB(week)]) {
+    if (item.exerciseId === exerciseId) return item.sets.length;
+    const variant = item.variants?.find((v) => v.exerciseId === exerciseId);
+    if (variant) return variant.sets.length;
+  }
+  return undefined;
+}
+
+/**
+ * Les fiches donnent le schéma de croisière du document (« 3 × 10-12 »), mais
+ * le nombre de séries suit la phase : 2 en semaines 1-2 et 9, 4 sur les
+ * exercices prioritaires à partir de la semaine 7. On affiche celui de la
+ * semaine en cours, pour que la fiche et la séance disent la même chose.
+ */
+export function oceanePrescription(prescription: string, exerciseId: string, week: number): string {
+  const n = oceaneSetCount(exerciseId, week);
+  return n == null ? prescription : prescription.replace(/^3( séries)? ×/, `${n}$1 ×`);
+}
 
 /**
  * Installe (ou réinstalle) le programme. Comme pour le bloc de Noah, ce qui

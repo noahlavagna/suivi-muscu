@@ -29,6 +29,7 @@ import { supersetLabels as labelsFor } from '../lib/superset';
 import { currentWeek, itemOptions } from '../lib/block';
 import { Segmented } from '../components/ui/Segmented';
 import { Toggle } from '../components/ui/Toggle';
+import { setTemplateWeekdays } from '../db/blocks';
 
 const WEEKDAYS: { d: number; label: string }[] = [
   { d: 1, label: 'Lun' },
@@ -259,8 +260,8 @@ export function TemplateEditorScreen({ templateId }: { templateId: string }) {
           </p>
           {template.note && <p className="tnum mt-0.5 text-[13px] text-ink-2">{template.note}</p>}
           <p className="mt-1 text-[12px] leading-4 text-ink-3">
-            Chaque semaine du bloc a sa propre version de cette séance. Modifier celle-ci ne touche
-            pas les autres.
+            Chaque semaine du bloc a sa propre version de cette séance. Modifier ses exercices ne
+            touche pas les autres ; les jours, eux, valent pour toutes les semaines.
           </p>
         </div>
       )}
@@ -276,11 +277,10 @@ export function TemplateEditorScreen({ templateId }: { templateId: string }) {
                 on ? 'bg-accent text-canvas' : 'bg-raised text-ink-2'
               }`}
               onClick={() =>
-                void db.templates.update(templateId, {
-                  weekdays: on
-                    ? template.weekdays.filter((x) => x !== d)
-                    : [...template.weekdays, d],
-                })
+                void setTemplateWeekdays(
+                  templateId,
+                  on ? template.weekdays.filter((x) => x !== d) : [...template.weekdays, d],
+                )
               }
             >
               {label}

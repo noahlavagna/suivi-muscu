@@ -19,6 +19,7 @@ import { ChallengeCard } from '../../components/gami/ChallengeCard';
 import { BloomHero } from '../../oceane/BloomHero';
 import { DuoPill } from '../../components/duo/DuoPartner';
 import { SafetySheet } from '../../oceane/SafetySheet';
+import { SessionsSheet } from '../../components/SessionsSheet';
 import { BloomBadges } from '../../oceane/BloomBadges';
 import { blockViews, defaultOptionIndexes, inCurrentWeek, isScheduled, optionAt } from '../../lib/block';
 import { weekProgress, type WeekProgress } from '../../db/blocks';
@@ -184,6 +185,7 @@ export function OceaneHome() {
   const setTab = useNav((s) => s.setTab);
   const gami = useGami();
   const [safety, setSafety] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
   const [checks, toggleCheck] = useWeekChecklist();
 
   if (!data) return <Screen>{null}</Screen>;
@@ -306,7 +308,7 @@ export function OceaneHome() {
           >
             Commencer la séance
           </Pressable>
-          <p className="mb-4 mt-2 text-center text-[12px] text-ink-3">
+          <p className="mb-2 mt-2 text-center text-[12px] text-ink-3">
             Tu peux tout consulter pendant la séance : chaque exercice a sa fiche et son schéma.
           </p>
         </>
@@ -342,6 +344,20 @@ export function OceaneHome() {
               : 'Aucune séance programmée'}
           </p>
         </Card>
+      )}
+
+      {/* Le planning propose, il n'impose pas : n'importe quelle séance, n'importe quel jour */}
+      {launchable.length > 0 && (
+        <Pressable
+          className={`mb-4 w-full rounded-[var(--radius-card)] py-3.5 text-center text-[15px] font-semibold ${
+            template && !doneToday ? 'text-accent' : 'bg-accent text-canvas'
+          }`}
+          onClick={() => setSessionsOpen(true)}
+        >
+          {template && !doneToday
+            ? 'Faire une autre séance · changer mes jours'
+            : 'Choisir une séance à lancer'}
+        </Pressable>
       )}
 
       {/* Le seul rendez-vous quotidien */}
@@ -423,15 +439,12 @@ export function OceaneHome() {
         Ouvrir mon guide
       </Pressable>
 
-      {launchable.length > 0 && !template && (
-        <Pressable
-          className="mb-4 w-full rounded-[var(--radius-card)] bg-raised py-3.5 text-[15px] font-semibold text-ink-2"
-          onClick={() => void start(launchable[0].id)}
-        >
-          Faire quand même {launchable[0].name}
-        </Pressable>
-      )}
-
+      <SessionsSheet
+        open={sessionsOpen}
+        onClose={() => setSessionsOpen(false)}
+        templates={launchable}
+        onStart={(id) => void start(id)}
+      />
       <SafetySheet open={safety} onClose={() => setSafety(false)} />
     </Screen>
   );

@@ -8,7 +8,12 @@ import { useNav } from '../../state/nav';
 import { GUIDE_SECTIONS } from '../../oceane/guide';
 import { SafetySheet } from '../../oceane/SafetySheet';
 import { EXERCISE_GUIDE } from '../../oceane/exerciseGuide';
-import { OCEANE_BLOCK_ID, OCEANE_WARMUP, oceaneTemplateFor } from '../../db/progOceane';
+import {
+  OCEANE_BLOCK_ID,
+  OCEANE_WARMUP,
+  oceanePrescription,
+  oceaneTemplateFor,
+} from '../../db/progOceane';
 import { blockView } from '../../lib/block';
 import { Segmented } from '../../components/ui/Segmented';
 
@@ -120,7 +125,9 @@ export function OceaneGuide() {
                     <p className="truncate text-[15px] font-semibold">
                       {names?.get(item.exerciseId) ?? item.exerciseId}
                     </p>
-                    <p className="mt-0.5 text-[12px] leading-4 text-ink-3">{g?.prescription}</p>
+                    <p className="mt-0.5 text-[12px] leading-4 text-ink-3">
+                      {g && oceanePrescription(g.prescription, item.exerciseId, week ?? 1)}
+                    </p>
                   </div>
                   <IconChevronRight size={16} className="shrink-0 text-accent" />
                 </Pressable>

@@ -59,7 +59,7 @@ interface DuoState {
   me: string | null;
   partner: PartnerLive | null;
   cheers: Cheer[];
-  /** Mots fraîchement révélés, présentés un par un */
+  /** Mots fraîchement révélés, présentés ensemble puis rangés d'un seul geste */
   incoming: Cheer[];
   busy: boolean;
   error: string | null;
@@ -85,8 +85,58 @@ const PUBLISH_DEBOUNCE_MS = 1_200;
 
 let channel: RealtimeChannel | null = null;
 let pollTimer: ReturnType<typeof setInterval> | undefined;
-/** Mots déjà présentés dans cette session d'app — la base peut tarder à le refléter */
-const shown = new Set<string>();
+/**
+ * Un mot « tout de suite » qui n'a pas pu être lu sur le moment (app fermée)
+ * n'a plus rien d'un encouragement en direct : passé ce délai, il rejoint la
+ * liste des mots reçus sans surgir à l'écran.
+ */
+const FRESH_NOW_MS = 3 * 3_600_000;
+
+/**
+ * Mots déjà présentés sur ce téléphone. Gardés d'un lancement à l'autre : si
+ * l'accusé de lecture n'atteint pas le serveur (réseau de salle, app fermée
+ * trop vite), le mot ne doit pas resurgir à chaque ouverture.
+ */
+const SEEN_KEY = 'duo-seen-cheers';
+const SEEN_MAX = 400;
+const shown = new Set<string>(loadSeen());
+/** Accusés de lecture déjà retentés depuis le lancement */
+const acked = new Set<string>();
+
+function loadSeen(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as unknown;
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function markSeen(ids: string[]) {
+  for (const id of ids) shown.add(id);
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...shown].slice(-SEEN_MAX)));
+  } catch {
+    /* stockage indisponible : la mémoire de la session suffit */
+  }
+}
+
+/** Marque des mots comme lus côté serveur — c'est ce qui affiche « Lu » chez l'autre. */
+async function ackRevealed(ids: string[], at: string) {
+  if (!supabase || ids.length === 0) return;
+  for (const id of ids) acked.add(id);
+  const { data, error } = await supabase
+    .from('duo_cheers')
+    .update({ revealed_at: at })
+    .in('id', ids)
+    .select('id');
+  if (error) {
+    // Hors ligne : on retentera au prochain rafraîchissement
+    for (const id of ids) acked.delete(id);
+  } else if ((data?.length ?? 0) < ids.length) {
+    console.warn('[duo] accusé de lecture refusé par le serveur — relancer supabase/duo.sql');
+  }
+}
 
 export const useDuo = create<DuoState>((set, get) => ({
   status: 'off',
@@ -174,7 +224,7 @@ export const useDuo = create<DuoState>((set, get) => ({
     await supabase.from('duo_cheers').delete().eq('id', id);
   },
 
-  dismissIncoming: () => set({ incoming: get().incoming.slice(1) }),
+  dismissIncoming: () => set({ incoming: [] }),
 }));
 
 let initialized = false;
@@ -205,7 +255,7 @@ async function loadDuo() {
 function applyDuo(duo: DuoRow | null) {
   const prev = useDuo.getState().duo;
   const status: Status = !duo ? 'none' : duo.b ? 'linked' : 'pending';
-  useDuo.setState({ duo, status, ...(duo?.id !== prev?.id ? { partner: null, cheers: [] } : {}) });
+  useDuo.setState({ duo, status, ...(duo?.id !== prev?.id ? { partner: null, cheers: [], incoming: [] } : {}) });
 
   if (channel && (duo?.id !== prev?.id || !duo)) {
     void supabase?.removeChannel(channel);
@@ -280,9 +330,16 @@ async function refresh() {
     return;
   }
   const row = live.data as { payload: LivePayload; updated_at: string } | null;
+  const rows = (cheers.data ?? []) as Cheer[];
+  // Lus ici mais pas encore notés comme tels sur le serveur : on retente
+  // l'accusé une fois, et on les tient pour lus quoi qu'il arrive.
+  const unacked = rows.filter((c) => c.from_user !== me && !c.revealed_at && shown.has(c.id));
+  const retry = unacked.filter((c) => !acked.has(c.id)).map((c) => c.id);
+  if (retry.length > 0) void ackRevealed(retry, new Date().toISOString());
+  const unackedIds = new Set(unacked.map((c) => c.id));
   useDuo.setState({
     partner: row ? { payload: row.payload, updatedAt: Date.parse(row.updated_at) } : null,
-    cheers: (cheers.data ?? []) as Cheer[],
+    cheers: rows.map((c) => (unackedIds.has(c.id) ? { ...c, revealed_at: c.created_at } : c)),
   });
   revealDue();
 }
@@ -300,15 +357,22 @@ function revealDue() {
   );
   if (due.length === 0) return;
   const now = new Date().toISOString();
-  for (const c of due) shown.add(c.id);
+  markSeen(due.map((c) => c.id));
   const ids = new Set(due.map((c) => c.id));
+  // Un mot caché attend son moment aussi longtemps qu'il faut ; un « tout de
+  // suite » resté sans lecteur est rangé sans bruit.
+  const fresh = due.filter(
+    (c) => c.unlock !== 'now' || Date.now() - Date.parse(c.created_at) < FRESH_NOW_MS,
+  );
   useDuo.setState((s) => ({
-    incoming: [...s.incoming, ...due.reverse().map((c) => ({ ...c, revealed_at: now }))],
+    incoming: [...s.incoming, ...fresh.reverse().map((c) => ({ ...c, revealed_at: now }))],
     cheers: s.cheers.map((c) => (ids.has(c.id) ? { ...c, revealed_at: now } : c)),
   }));
-  haptics.pr();
-  sounds.setDone();
-  void supabase.from('duo_cheers').update({ revealed_at: now }).in('id', [...ids]);
+  if (fresh.length > 0) {
+    haptics.pr();
+    sounds.setDone();
+  }
+  void ackRevealed([...ids], now);
 }
 
 // ── Publication de sa propre séance ─────────────────────────────────────────

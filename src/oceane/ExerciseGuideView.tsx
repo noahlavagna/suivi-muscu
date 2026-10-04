@@ -3,6 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { Figure } from './Figures';
 import { guideFor } from './exerciseGuide';
+import { OCEANE_BLOCK_ID, oceanePrescription, oceaneSetCount, phaseOfWeek } from '../db/progOceane';
+import { blockView } from '../lib/block';
 
 /**
  * La fiche d'un exercice : schéma, prescription, et les rubriques du document.
@@ -48,6 +50,10 @@ function Rubric({
 export function ExerciseGuideView({ exerciseId }: { exerciseId: string }) {
   const exercise = useLiveQuery(() => db.exercises.get(exerciseId), [exerciseId]);
   const g = guideFor(exerciseId);
+  const week = useLiveQuery(async () => {
+    const block = await db.blocks.get(OCEANE_BLOCK_ID);
+    return block ? blockView(block).week : 1;
+  }, []);
 
   if (!g) {
     return (
@@ -63,8 +69,15 @@ export function ExerciseGuideView({ exerciseId }: { exerciseId: string }) {
         <span className="rounded-full bg-accent-dim px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-accent">
           {g.tag}
         </span>
-        <span className="tnum text-[13px] font-semibold text-ink-2">{g.prescription}</span>
+        <span className="tnum text-[13px] font-semibold text-ink-2">
+          {oceanePrescription(g.prescription, exerciseId, week ?? 1)}
+        </span>
       </div>
+      {oceaneSetCount(exerciseId, week ?? 1) != null && (
+        <p className="tnum -mt-1.5 mb-2 text-[12px] text-ink-3">
+          Semaine {week ?? 1} · {phaseOfWeek(week ?? 1).label}
+        </p>
+      )}
       <h2 className="text-[22px] font-bold leading-7 tracking-[-0.01em]">
         {exercise?.name ?? exerciseId}
       </h2>

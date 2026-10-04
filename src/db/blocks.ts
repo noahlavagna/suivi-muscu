@@ -92,3 +92,24 @@ export async function pendingLevelUp(templateId?: string): Promise<LevelUp | nul
     toIsFinal: to === block.weeks.length,
   };
 }
+
+/**
+ * Planifie une séance sur des jours de la semaine. Dans un bloc, chaque palier
+ * a sa propre version de la séance : le jour choisi vaut pour toutes, sinon le
+ * planning retomberait sur l'ancien jour à la montée de palier suivante.
+ */
+export async function setTemplateWeekdays(templateId: string, weekdays: number[]): Promise<void> {
+  const template = await db.templates.get(templateId);
+  if (!template) return;
+  const days = [...new Set(weekdays)];
+  if (!template.blockId) {
+    await db.templates.update(templateId, { weekdays: days });
+    return;
+  }
+  const siblings = (await db.templates.toArray()).filter(
+    (t) => t.blockId === template.blockId && t.name === template.name,
+  );
+  await db.transaction('rw', ['templates'], async () => {
+    for (const t of siblings) await db.templates.update(t.id, { weekdays: days });
+  });
+}
